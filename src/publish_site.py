@@ -148,9 +148,28 @@ def main():
             full.append({"date": str(d.date()), "mae": round(e, 2),
                          "mae_naive": None if en is None else round(en, 2), "src": "backtest"})
     (site / "data" / "history.json").write_text(json.dumps(full))
-    # curves: last 60 days, live version wins where both exist
+    # curves: everything from 2024 on. Historical actual prices come from the Ember dataset
+    # (CC-BY-4.0, attribution on the page); only the post-Ember Nord Pool top-up days are
+    # additionally limited to a rolling 60-day window.
+    try:
+        import data as data_mod
+        e = pd.read_csv(data_mod.RAW / "elec_price_hourly_ember.csv", usecols=["Datetime (UTC)"])
+        ember_end = pd.to_datetime(e["Datetime (UTC)"], format="ISO8601").max().normalize() - pd.Timedelta(days=1)
+    except Exception:
+        ember_end = pd.Timestamp("2000-01-01")
     merged = {pd.Timestamp(r["date"]): r for r in list(bt_days.values()) + days_out}
-    curves = [merged[d] for d in sorted(merged)][-60:]
+    cutoff_np = pd.Timestamp.today().normalize() - pd.Timedelta(days=60)
+    curves = []
+    for d in sorted(merged):
+        if d.year < 2024:
+            continue
+        if d <= ember_end:
+            merged[d]["price_src"] = "ember"
+        elif d >= cutoff_np:
+            merged[d]["price_src"] = "nordpool"
+        else:
+            continue
+        curves.append(merged[d])
     (site / "data" / "days.json").write_text(json.dumps(curves))
     print(f"history: {len(full)} day(s), curves: {len(curves)} day(s)")
     print(f"site data written: {target}, {len(hist)} evaluated day(s) -> {site/'data'}")
