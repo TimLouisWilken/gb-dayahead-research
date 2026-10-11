@@ -1,0 +1,16 @@
+# third-party raw data is NOT redistributed - rebuild it with src/update_data.py
+data/
+# runtime state, logs, bulky caches
+.venv/
+outputs/logs/
+outputs/live_state/
+outputs/live/
+outputs/qra_cache_*.npy
+outputs/qra15_raw.npy
+outputs/qra_x_raw.npy
+# contains the raw actual price column
+outputs/forecasts_quantiles.csv
+__pycache__/
+.DS_Store
+outputs/forecasts_hourly.csv
+.claude/

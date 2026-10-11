@@ -1,0 +1,67 @@
+online days: 2023-07-01 -> 2026-09-27 (1177), members: ['lear', 'lstm', 'lstm_rf', 'lstm_static', 'naive', 'rf_long', 'rf_short', 'rf_static']
+
+=== 2024-01 → end ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       21.896 37.215 1.000   32.166
+LEAR (daily recal.)   11.563 20.840 0.528   18.128
+RF static             15.791 25.364 0.721   23.585
+LSTM static           13.529 22.497 0.618   20.968
+RF long window        12.295 20.484 0.562   19.538
+RF short window       13.806 23.390 0.631   20.945
+LSTM online           11.019 19.587 0.503   17.950
+LSTM + RF error corr. 10.772 18.302 0.492   17.665
+Hybrid equal weights  10.382 17.913 0.474   17.047
+Hybrid inverse-MAE    10.213 17.727 0.466   16.949
+Hybrid BOA            10.176 17.625 0.465   16.898
+Hybrid BOA + LEAR      9.752 17.419 0.445   16.230
+
+=== 2024 ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       19.139 29.847 1.000   32.065
+LEAR (daily recal.)   10.005 16.582 0.523   18.287
+RF static             13.529 20.826 0.707   22.156
+LSTM static           11.270 17.630 0.589   19.939
+RF long window        10.584 16.599 0.553   19.199
+RF short window       11.636 18.473 0.608   20.591
+LSTM online            9.998 16.213 0.522   18.439
+LSTM + RF error corr.  9.522 15.325 0.497   17.866
+Hybrid equal weights   9.153 14.736 0.478   17.258
+Hybrid inverse-MAE     9.077 14.629 0.474   17.262
+Hybrid BOA             9.060 14.628 0.473   17.221
+Hybrid BOA + LEAR      8.651 14.306 0.452   16.482
+
+=== 2025 ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       22.199 41.039 1.000   33.958
+LEAR (daily recal.)   11.081 22.899 0.499   18.635
+RF static             15.702 27.278 0.707   25.214
+LSTM static           13.254 24.334 0.597   21.884
+RF long window        11.748 22.032 0.529   19.915
+RF short window       13.789 26.002 0.621   21.683
+LSTM online           10.967 21.521 0.494   18.201
+LSTM + RF error corr. 10.729 19.929 0.483   17.983
+Hybrid equal weights  10.240 19.796 0.461   17.211
+Hybrid inverse-MAE    10.082 19.595 0.454   17.079
+Hybrid BOA            10.018 19.339 0.451   16.998
+Hybrid BOA + LEAR      9.616 19.449 0.433   16.488
+
+=== 2026 ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       25.231 40.731 1.000   29.933
+LEAR (daily recal.)   14.311 23.048 0.567   17.243
+RF static             18.974 28.181 0.752   23.368
+LSTM static           16.954 25.635 0.672   21.151
+RF long window        15.338 22.977 0.608   19.498
+RF short window       16.769 25.603 0.665   20.449
+LSTM online           12.473 21.031 0.494   16.955
+LSTM + RF error corr. 12.523 19.709 0.496   16.974
+Hybrid equal weights  12.236 19.172 0.485   16.545
+Hybrid inverse-MAE    11.926 18.918 0.473   16.353
+Hybrid BOA            11.900 18.917 0.472   16.328
+Hybrid BOA + LEAR     11.426 18.394 0.453   15.548
+
+figures -> /Users/webshape/Library/Mobile Documents/com~apple~CloudDocs/Dateien/Projects/Day Ahead Prediction/outputs/figures

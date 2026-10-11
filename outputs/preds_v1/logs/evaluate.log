@@ -1,0 +1,51 @@
+online days: 2023-07-01 -> 2025-12-11 (895), members: ['lear', 'lstm', 'lstm_rf', 'lstm_static', 'naive', 'rf_long', 'rf_short', 'rf_static']
+
+=== 2024-01 → end ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       20.782 36.032 1.000   33.278
+LEAR (daily recal.)   10.562 20.094 0.508   18.178
+RF static             14.267 23.634 0.686   23.037
+LSTM static           12.034 19.880 0.579   20.310
+RF long window        10.934 19.456 0.526   19.227
+RF short window       12.428 22.416 0.598   21.074
+LSTM online           10.426 18.583 0.502   18.165
+LSTM + RF error corr. 10.065 18.012 0.484   17.770
+Hybrid equal weights   9.520 17.406 0.458   16.790
+Hybrid inverse-MAE     9.450 17.332 0.455   16.860
+Hybrid BOA             9.435 17.265 0.454   16.825
+Hybrid BOA + LEAR      9.040 17.199 0.435   16.128
+
+=== 2024 ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       19.129 29.820 1.000   32.043
+LEAR (daily recal.)    9.925 16.749 0.519   17.804
+RF static             13.120 20.069 0.686   21.724
+LSTM static           11.241 17.569 0.588   19.739
+RF long window        10.370 16.347 0.542   18.781
+RF short window       11.443 18.702 0.598   20.550
+LSTM online            9.885 16.088 0.517   17.923
+LSTM + RF error corr.  9.409 15.198 0.492   17.433
+Hybrid equal weights   8.949 14.729 0.468   16.455
+Hybrid inverse-MAE     8.903 14.664 0.465   16.527
+Hybrid BOA             8.885 14.614 0.464   16.503
+Hybrid BOA + LEAR      8.450 14.206 0.442   15.626
+
+=== 2025 ===
+                         MAE   RMSE  rMAE  sMAPE %
+model                                             
+Naive (d-1/d-7)       22.535 41.620 1.000   34.587
+LEAR (daily recal.)   11.238 23.119 0.499   18.575
+RF static             15.482 26.905 0.687   24.430
+LSTM static           12.875 22.070 0.571   20.916
+RF long window        11.532 22.285 0.512   19.699
+RF short window       13.473 25.778 0.598   21.629
+LSTM online           10.999 20.906 0.488   18.422
+LSTM + RF error corr. 10.761 20.580 0.478   18.127
+Hybrid equal weights  10.125 19.856 0.449   17.146
+Hybrid inverse-MAE    10.031 19.773 0.445   17.213
+Hybrid BOA            10.019 19.690 0.445   17.166
+Hybrid BOA + LEAR      9.666 19.888 0.429   16.659
+
+figures -> /Users/webshape/Library/Mobile Documents/com~apple~CloudDocs/Dateien/Projects/Day Ahead Prediction/outputs/figures
