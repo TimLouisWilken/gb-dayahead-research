@@ -14,3 +14,5 @@ __pycache__/
 .DS_Store
 outputs/forecasts_hourly.csv
 .claude/
+# full-text PDFs for the literature review (publisher licenses: not redistributed)
+literature/pdf/
