@@ -301,7 +301,7 @@ Results, 2024-01-01 → 2026-09-27, with daily recalibration:
 
 ## Design rationale (literature)
 
-The full review with references is in [`docs/literature_review.md`](docs/literature_review.md). Key points:
+The pre-build review is in [`docs/literature_review.md`](docs/literature_review.md); the full-text review of 25 papers with the positioning of this system is in [`docs/LITERATURE.md`](docs/LITERATURE.md) (per-paper notes in `literature/notes/`, PDFs rebuilt with `literature/download.sh`). Key points:
 
 - **Daily recalibration** and averaging across short and long calibration windows are best practice in
   EPF (Lago et al., 2021; Marcjasz, Serafin & Weron, 2018; Hubicka, Marcjasz & Weron, 2019). This motivates
@@ -347,7 +347,9 @@ src/probabilistic.py      quantile forecasts: HS, QRA (core/all members), (adapt
 src/tune_lstm.py          single-member checks on the 2023-H2 burn-in period
 run_all.sh                runs all members in parallel, then lstm_rf and the evaluation
 run_live.sh               daily live run (scheduled via LaunchAgent, 08:50 UK time)
-docs/literature_review.md literature review and references
+docs/literature_review.md pre-build literature review and references
+docs/LITERATURE.md        full-text literature review and positioning
+literature/               per-paper notes (notes/), PDF download script
 outputs/                  predictions, metrics, figures, logs
 outputs/preds_v1          leaky v1 run;  preds_v2_no_ndf = v2 before the NDF input
 outputs/live_state/       persistent live state: member pickles, live OOS forecasts, QRA state
