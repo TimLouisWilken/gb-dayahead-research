@@ -349,6 +349,7 @@ run_all.sh                runs all members in parallel, then lstm_rf and the eva
 run_live.sh               daily live run (scheduled via LaunchAgent, 08:50 UK time)
 docs/literature_review.md pre-build literature review and references
 docs/LITERATURE.md        full-text literature review and positioning
+docs/paper/              working paper (LaTeX source + PDF)
 literature/               per-paper notes (notes/), PDF download script
 outputs/                  predictions, metrics, figures, logs
 outputs/preds_v1          leaky v1 run;  preds_v2_no_ndf = v2 before the NDF input
