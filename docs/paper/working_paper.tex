@@ -39,7 +39,7 @@ The electricity price forecasting (EPF) literature gives a clear methodological 
 
 \paragraph{Contributions.}
 \begin{enumerate}
-\item A leakage-audited data set and protocol for GB day-ahead prices, including seven concrete leakage patterns found in a student pipeline we started from and in our own first version (Section~\ref{sec:data}).
+\item A leakage-audited data set and protocol for GB day-ahead prices, including seven concrete leakage patterns found in typical pipelines and in our own first version (Section~\ref{sec:data}).
 \item A 13-member online pool (random forests, boosting, four neural architectures, LEAR, a merit-order regression and a zero-shot foundation model), combined per hour by BOA, with a documented ablation showing that six diverse members beat all thirteen (Section~\ref{sec:point}).
 \item A probabilistic layer, QRA over 15 regressors followed by adaptive conformal inference, whose 50/80/90\,\% intervals are within about one percentage point of nominal (Section~\ref{sec:prob}).
 \item An economic evaluation by battery dispatch and a documented list of negative results (Sections~\ref{sec:econ}, \ref{sec:negative}).
@@ -74,15 +74,15 @@ Gas (SAP) & gas day $D\!-\!3$; UK ETS (UKA) futures settlement of $D\!-\!2$\\
 
 The demand forecast matters: it is three times more accurate than the previous proxy (the outturn one week earlier; MAE 665 vs.\ 2\,031~MW against outturn) and lowers the MAE of the 4-member hybrid by 4.9\,\%.
 
-\paragraph{Leakage audit.} Starting from the data and pipeline of a student group project (UCL BENV0148, April 2026), we found and removed:
-(i)~a rolling price mean containing hours of the forecast day;
+\paragraph{Leakage audit.} Auditing common pipeline designs and our own first version, we found and removed:
+(i)~a rolling price mean containing hours of the forecast day (\texttt{closed='left'} on an hourly index);
 (ii)~gas and carbon lagged by only one day and a demand shift of 24 hours;
 (iii)~weather taken from reanalysis (actual weather) and, in our first version, a previous-day forecast that was issued after the auction;
 (iv)~"day-ahead" wind and solar forecasts that are published at 16:45~UTC on $D\!-\!1$, after the auction;
 (v)~UTC days instead of local days, so that in summer an input hour belonged to the auction being forecast;
 (vi)~gap filling with later values;
 (vii)~revised wind outturn published after the cutoff (114 of 97\,000 half-hours), found by the issue-time check itself.
-Two further data errors were fixed: gas SAP is in p/kWh, and the "UK ETS" file of the project was the EU ETS price. The script \texttt{src/test\_leakage.py} scrambles every value that was unknown at 07:30~UTC (prices from $D$, demand from $D\!-\!1$, gas from $D\!-\!2$, and so on), including both daylight-saving switch days, and asserts that the model inputs for $D$ are bit-identical. A positive control scrambles the permitted inputs and must change the result; a third check verifies that no forecast issue time exceeds the cutoff. The cost of removing the leaks was small: on the old evaluation window the hybrid MAE rose from 9.44 to 9.64 and LEAR from 10.56 to 10.64.
+Two further data errors were fixed: gas SAP is in p/kWh, and a file labelled "UK ETS" was the EU ETS price. The script \texttt{src/test\_leakage.py} scrambles every value that was unknown at 07:30~UTC (prices from $D$, demand from $D\!-\!1$, gas from $D\!-\!2$, and so on), including both daylight-saving switch days, and asserts that the model inputs for $D$ are bit-identical. A positive control scrambles the permitted inputs and must change the result; a third check verifies that no forecast issue time exceeds the cutoff. 
 
 \section{Models and combination}
 \label{sec:point}
@@ -281,7 +281,7 @@ On GB day-ahead prices, with a strict 07:30~UTC information set, daily updating 
 Code, predictions of all members, metrics, Diebold--Mariano tables and figures are in the public repository. Raw third-party price data are not redistributed (licences of Nord Pool and others); Ember data (CC-BY-4.0) can be downloaded with \texttt{src/update\_data.py}. Full-text PDFs of cited papers are not committed; \texttt{literature/download.sh} re-downloads them. Prices: Ember, \emph{European wholesale electricity price data}, CC-BY-4.0.
 
 \section*{Acknowledgements}
-The starting point was the UCL BENV0148 group project on GB electricity price forecasting (April 2026). The literature review and parts of the implementation were carried out with the help of the AI assistant Claude (Anthropic); all numbers in this paper are taken from the repository outputs.
+The literature review and parts of the implementation were carried out with the help of the AI assistant Claude (Anthropic); all numbers in this paper are taken from the repository outputs.
 
 \begin{thebibliography}{99}\small
 \bibitem[Berrisch and Ziel(2024)]{berrisch2024} Berrisch, J., Ziel, F. (2024/25). Multivariate probabilistic CRPS learning with an application to day-ahead electricity prices. \emph{International Journal of Forecasting}. arXiv:2303.10019.

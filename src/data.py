@@ -94,8 +94,8 @@ def load_neighbour_prices():
 
 
 def load_eua():
-    """EU ETS futures settlement in EUR/t (the UCL file named 'ukets' is in fact EUA)."""
-    eua = pd.read_csv(RAW / "carbon_ukets_futures_daily_investing.csv", encoding="utf-8-sig")
+    """EU ETS (EUA) futures settlement in EUR/t, investing.com export."""
+    eua = pd.read_csv(RAW / "carbon_eua_daily_investing.csv", encoding="utf-8-sig")
     return pd.Series(pd.to_numeric(eua["Price"].astype(str).str.replace(",", "")).values,
                      index=pd.to_datetime(eua["Date"], format="%d/%m/%Y")).sort_index()
 

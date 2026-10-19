@@ -19,10 +19,6 @@ Out of sample, 2024-01-01 → 2026-09-27, strict 07:30 UTC D-1 information set:
 
 ## Background
 
-The project builds on the data and lessons of the UCL BENV0148 group project
-(`UK-Electricity-Price-Forecasting-Project-main`, report *GB Electricity Price Forecasting*, April 2026),
-where a static LSTM underperformed (R² 0.75) and tree ensembles dominated.
-
 **Idea.** In this setting, neither a deep model nor a tree ensemble wins on its own. Prices drift between
 regimes (the 2021–22 crisis, then 2024–25 normalisation), so every model has to keep learning from the
 newest data. The project started as an *online* hybrid of four core members:
@@ -57,8 +53,7 @@ Final products: **Hybrid BOA all models** (BOA over all 13 members) for the poin
 
 ## Data (v2, refreshed 2026-10-09)
 
-`python src/update_data.py` downloads every input up to the latest available day. Earlier inputs
-are kept in `data/raw_v1/`.
+`python src/update_data.py` downloads every input up to the latest available day. 
 
 Renewables are **not modelled**. The model uses the system operator's own wind and solar forecasts,
 taking the issue that existed before the auction, and spends all its capacity on the price.
@@ -74,7 +69,7 @@ taking the issue that existed before the auction, and spends all its capacity on
 | Gas SAP (p/kWh) | [ONS / National Gas](https://www.ons.gov.uk/economy/economicoutputandproductivity/output/datasets/systemaveragepricesapofgas) | gas day D-3 (conservative) |
 | UK ETS (UKA) futures, GBP/t | investing.com "UK Emissions Allowances Energy c1" CSV export in `data/manual/` (there is no free API) | settlement of D-2 |
 | TTF front-month, EUR/MWh (`EXTRA_FEATS=2`, used by `gbm`) | Yahoo Finance `TTF=F` | settlement of trading day D-2 |
-| EUA futures, EUR/t (`EXTRA_FEATS=2`, used by `gbm`) | investing.com export (the UCL "ukets" file) | settlement of D-2 |
+| EUA futures, EUR/t (`EXTRA_FEATS=2`, used by `gbm`) | investing.com export (investing.com "Carbon Emissions Futures" export) | settlement of D-2 |
 | Wind outturn (transmission), for the forecast-error features (`EXTRA_FEATS=2`) | Elexon **AGWS** (`/generation/actual/per-type/wind-and-solar`) | published ~90 min after each half hour; only publications ≤ 07:30 UTC on X+1 are stored, used with lags ≥ 2 days |
 | Neighbour day-ahead prices FR/NL/BE/NO/IE/DK/DE (`EXTRA_FEATS=1`, **not** used in production) | same Ember zip | SDAC of delivery day D-1 clears ~12:45 CET on D-2 |
 
@@ -103,15 +98,15 @@ autumn hour is averaged.
 
 | # | Where | Problem | Fix |
 |---|---|---|---|
-| 1 | UCL pipeline | `Price_Roll_Mean_24` (`closed='left'`) contains same-day prices of D | price lags only from complete days ≤ D-1 |
-| 2 | UCL pipeline | gas/CO₂ lagged by 1 day, demand `shift(24)` | gas D-3, CO₂ D-2, demand ≤ D-2 |
+| 1 | common pattern | `Price_Roll_Mean_24` (`closed='left'`) contains same-day prices of D | price lags only from complete days ≤ D-1 |
+| 2 | common pattern | gas/CO₂ lagged by 1 day, demand `shift(24)` | gas D-3, CO₂ D-2, demand ≤ D-2 |
 | 3 | v1 of this project | `weather_final.csv` is **ERA5 reanalysis = actual weather** (Open-Meteo archive API) | temperature forecast made 48 h ahead |
 | 4 | v1 | Open-Meteo `previous_day1` = forecast made 24 h before *each hour*, i.e. issued during D-1, after the auction | `previous_day2` |
 | 5 | v1 | Elexon DGWS wind/solar "day-ahead" forecasts are always published **16:45 UTC on D-1**, after the auction | WINDFOR + NESO embedded issues ≤ 07:30 UTC |
 | 6 | v1 | **UTC days instead of local days.** In summer the input hour 23:00 UTC of D-1 is 00:00 BST of D, so it came from the very auction being forecast | local delivery days |
 | 7 | v1 | gap filling by interpolation used later values | causal fill from earlier days only |
 | – | unit bug | gas SAP is p/kWh, not GBP/therm | CCGT cost = `SAP × 10 / 0.5 + 0.37 × UKA` GBP/MWh_el |
-| – | data bug | the UCL "UK ETS" file is the **EU ETS (EUA)** price: it starts on 4 Jan 2021 at 33.89, before UKA futures existed, and runs 1.46× above UKA | UKA from investing.com; EUA (rescaled) only before UKA's first quote |
+| – | data bug | a file labelled "UK ETS" turned out to be the **EU ETS (EUA)** price: it starts on 4 Jan 2021 at 33.89, before UKA futures existed, and runs 1.46× above UKA | UKA from investing.com; EUA (rescaled) only before UKA's first quote |
 | 8 | extra features | Elexon AGWS stores **late revisions**: 114 of 97k half hours were (re-)published after the 07:30-UTC cutoff of the day they would be used for | `update_data.py` keeps only publications before each value's own cutoff; found by the issue-time check itself |
 
 **Automated check:** `python src/test_leakage.py` (runs on the feature **superset**, `EXTRA_FEATS=3`).
@@ -240,29 +235,9 @@ residual load becomes fully forecast-based. The NDF is 3× more accurate than th
 
 The static RF got worse, because its single training window now starts in July 2021 instead of January.
 
-**Effect of the leakage fixes.** On v1's evaluation window (2024-01 → 2025-12-11), the strictly
-leakage-free v2 is only slightly worse than v1. All conclusions from v1 still hold.
-
-| | v1 (leaky) | v2 (leakage-free, before NDF) |
-|---|---|---|
-| Hybrid BOA | 9.44 | 9.64 |
-| LEAR | 10.56 | 10.64 |
-
 ![Monthly MAE](outputs/figures/monthly_mae.png)
 ![BOA weights](outputs/figures/boa_weights.png)
 ![Example](outputs/figures/example_forecast.png)
-
-**Comparison with the UCL submission.** On the UCL test window (Jan–Oct 2025):
-
-| Model | MAE | R² |
-|---|---|---|
-| Hybrid BOA (this project, leakage-free, with NDF) | 9.88 | 0.85 |
-| Hybrid BOA + LEAR | 9.52 | 0.85 |
-| LEAR | 11.16 | 0.73 |
-| UCL XGB+SVR ensemble | 9.44 | 0.86 |
-
-The strictly leakage-free model gets close to the UCL figure, but the numbers are still **not comparable**. The UCL pipeline used the look-ahead inputs listed above:
-same-day prices, early fuel prices, actual weather, and post-auction renewable forecasts.
 
 ## Battery arbitrage backtest
 
@@ -368,7 +343,6 @@ The pre-build review is in [`docs/literature_review.md`](docs/literature_review.
 
 ```
 data/raw/                 inputs (refreshed by src/update_data.py)
-data/raw_v1/              original inputs from the UCL project (v1)
 data/manual/              investing.com UKA exports (no free API)
 src/update_data.py        downloads: Ember (GB + neighbours), NESO, Elexon WINDFOR/NDF/AGWS, Open-Meteo, ONS, UKA, TTF
 src/data.py               leakage-free per-local-day tensors; EXTRA_FEATS env flag for the experimental feature sets
@@ -388,7 +362,7 @@ docs/LITERATURE.md        full-text literature review and positioning
 docs/paper/              working paper (LaTeX source + PDF)
 literature/               per-paper notes (notes/), PDF download script
 outputs/                  predictions, metrics, figures, logs
-outputs/preds_v1          leaky v1 run;  preds_v2_no_ndf = v2 before the NDF input
+outputs/preds_v2_no_ndf   run before the NDF input was added
 outputs/live_state/       persistent live state: member pickles, live OOS forecasts, QRA state
 outputs/live/             daily forecast CSVs + history.csv
 outputs/preds_nf_experiment   rejected neighbour-price feature runs (EXTRA_FEATS=1)
