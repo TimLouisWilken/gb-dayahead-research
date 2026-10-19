@@ -384,9 +384,9 @@ def update_carbon():
     """UK ETS allowance (UKA) futures, front month, GBP/t, from investing.com CSV exports
     ("UK Emissions Allowances Energy c1 Historical Data") placed in data/manual/.
 
-    Note: the UCL file carbon_ukets_futures_daily_investing.csv is in fact the *EU* ETS (EUA)
-    price despite its name: it starts at 33.89 on 4 Jan 2021, before UKA futures existed
-    (May 2021), and runs ~1.46x above UKA in Dec 2025. It is kept only as a fallback."""
+    Note: the EU ETS (EUA) series is read from carbon_eua_daily_investing.csv (investing.com
+    export, EUR/t); it is not a UKA price (~1.46x above UKA in Dec 2025) and is used only by the
+    gbm member and as a fallback before UKA's first quote (May 2021)."""
     files = sorted(MANUAL.glob("*.csv"))
     if not files:
         print("carbon : no investing.com UKA export in data/manual/ -> nothing to do")
