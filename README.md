@@ -1,13 +1,31 @@
-# Online LSTM + Random-Forest Hybrid for GB Day-Ahead Electricity Prices
+# Online Ensemble Forecasting of GB Day-Ahead Electricity Prices
 
-A continually re-trained hybrid forecaster for the Great Britain day-ahead market.
-It builds on the data and lessons of the UCL BENV0148 group project
+A continually retrained ensemble of 13 forecasting models for the Great Britain day-ahead market,
+combined with Bernstein Online Aggregation, with calibrated quantiles and a live daily forecast.
+
+**Live forecast:** https://timlouiswilken.github.io/gb-dayahead-forecast/ (published every morning before gate closure)
+
+## Headline results
+
+Out of sample, 2024-01-01 → 2026-09-27, strict 07:30 UTC D-1 information set:
+
+| | Result |
+|---|---|
+| Point forecast, **Hybrid BOA over all 13 members** | MAE **8.73 EUR/MWh**, 21 % below the LEAR benchmark (11.07) and better than every single model (DM p < 0.001) |
+| Point forecast, **6-member selection** (chosen on 2024 only, used in the live system) | MAE **8.56 EUR/MWh**, better than all 13 in every year (DM p < 0.001) |
+| Quantiles, **QRA-15 + adaptive conformal** | 50 / 80 / 90 % intervals cover 49.4 / 79.5 / 89.6 % |
+| **Battery backtest** (50 MW / 100 MWh, day-ahead only) | 93.1 % (2025) and 93.7 % (2026) of the perfect-foresight arbitrage revenue, against 89.9 / 90.4 % for LEAR |
+| Largest single gain | continual learning: online RF 11.58 vs the same model trained once 17.12 |
+
+## Background
+
+The project builds on the data and lessons of the UCL BENV0148 group project
 (`UK-Electricity-Price-Forecasting-Project-main`, report *GB Electricity Price Forecasting*, April 2026),
 where a static LSTM underperformed (R² 0.75) and tree ensembles dominated.
 
 **Idea.** In this setting, neither a deep model nor a tree ensemble wins on its own. Prices drift between
 regimes (the 2021–22 crisis, then 2024–25 normalisation), so every model has to keep learning from the
-newest data. We therefore build an *online* hybrid:
+newest data. The project started as an *online* hybrid of four core members:
 
 | Member | Role | Continual-learning mechanism |
 |---|---|---|
@@ -169,8 +187,8 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    - RF: online 11.58 vs static 17.12 (−32 %).
    - LSTM: online 10.69 vs static 13.50 (−21 %).
    - Both p < 0.001. The static models degrade year by year; the online models do not.
-2. **The online hybrid beats LEAR in every year:** MAE −12.5 %, RMSE −19 %, p < 0.001. The gap
-   is largest in 2026 (−17 %).
+2. **Already the 4-member online hybrid beats LEAR in every year:** MAE −12.5 %, RMSE −19 %,
+   p < 0.001. The gap is largest in 2026 (−17 %). The full 13-member combination widens this to −21 %.
 3. **The Transformer is the best single model** (9.78) — but it is *not* significantly better than
    the 4-member Hybrid BOA (p = 0.73), and the full combination beats it clearly (p < 0.001).
    TCN and DNN look fine on MAE but have fat error tails (RMSE 23.5 / 23.9 — 2025 instability);
@@ -182,15 +200,15 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    (libomp conflict with scikit-learn on macOS/x86); HistGradientBoosting is the same LightGBM-style algorithm.
 6. **BOA weighting ≈ equal weights for the small, homogeneous pool** (9.68 vs 9.79) — but for the
    13-member pool with deliberately weak members (Chronos 14.4, merit 12.2) adaptive weighting pays:
-   BOA 8.98 vs equal 9.15. Weak members are down-weighted automatically, so nothing had to be
+   BOA 8.73 vs equal 9.15. Weak members are down-weighted automatically, so nothing had to be
    pre-selected (regret grows only with log N).
-7. **Hybrid BOA all models beats every single model** (8.98): significantly better than every
+7. **Hybrid BOA all models beats every single model** (8.73): significantly better than every
    earlier combination and every single model (all p < 0.0001). LEAR4, merit and Chronos add little
    alone, but they do no harm inside BOA.
 8. **Ablation: 6 diverse members beat all 13.** Greedy backward elimination *selected on 2024
    only* keeps exactly one member per model family — `lstm_rf, gbm, transformer, lear, merit,
-   chronos` — and wins on the untouched 2025–26 holdout: MAE 9.01 vs 9.18 (DM p = 0.002); full
-   period 8.59 vs 8.74 (p = 0.002), better in every year and in RMSE. Redundant siblings
+   chronos` — and wins on the untouched 2025–26 holdout: MAE 8.99 vs 9.18; full period 8.56 vs 8.73
+   (DM p < 0.001), better in every year and in RMSE. Redundant siblings
    (both RFs, plain LSTM, TCN, DNN, DDNN, LEAR4) dilute the BOA weights of their better twin:
    BOA's log-N regret bound protects against *bad* experts, not against *correlated* ones.
    Notably the individually weak merit (12.2) and Chronos (14.4) stay in — their errors are the
@@ -245,6 +263,24 @@ leakage-free v2 is only slightly worse than v1. All conclusions from v1 still ho
 
 The strictly leakage-free model gets close to the UCL figure, but the numbers are still **not comparable**. The UCL pipeline used the look-ahead inputs listed above:
 same-day prices, early fuel prices, actual weather, and post-auction renewable forecasts.
+
+## Battery arbitrage backtest
+
+`src/bess_backtest.py` asks what the forecasts are worth in EUR. A 100 MWh / 50 MW battery (2-hour,
+85 % round trip) schedules each local day D with an LP on the forecast available on the morning of D-1,
+commits it as price-taking day-ahead bids, and is settled at the actual clearing prices
+(arbitrage gross margin, no grid fees or degradation).
+
+| Strategy | 2025: % of perfect foresight | 2026 (Jan–Sep) | EUR/kW/yr (2026) |
+|---|---|---|---|
+| Perfect foresight (upper bound) | 100.0 | 100.0 | 50.4 |
+| **Hybrid BOA all 13** | **93.1** | **93.7** | 47.2 |
+| BOA selected 6 | 92.1 | 93.6 | 47.2 |
+| LEAR | 89.9 | 90.4 | 45.6 |
+| Persistence (D-1 profile) | 74.5 | 76.5 | 38.6 |
+
+The better point forecast is worth about 3 percentage points of the attainable revenue over LEAR and
+17–19 points over persistence; forecast-based schedules lost money on only 1–2 days per year.
 
 ## Probabilistic forecasts
 
