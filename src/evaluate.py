@@ -26,7 +26,9 @@ HYBRID = ["rf_long", "rf_short", "lstm", "lstm_rf"]          # members of the on
 HYBRID_ML = HYBRID + ["gbm", "tcn", "transformer", "dnn", "ddnn"]                 # all machine-learning members
 HYBRID_ALL = HYBRID_ML + ["lear", "lear4", "merit", "chronos"]                    # everything
 # ablation-selected subset: greedy backward elimination on 2024 only, validated on the untouched
-# 2025-26 holdout (9.18 vs 9.47 MAE of the full pool, DM p = 0.002). One member per model family.
+# 2025-26 holdout. Before serving-time weight smoothing: holdout MAE 9.01 vs 9.18 for the full
+# pool (DM p = 0.011), full period 8.59 vs 8.74 (p = 0.002). With smoothing: 8.99 vs 9.18
+# (p = 0.007) and 8.56 vs 8.73 (p < 0.001). One member per model family.
 HYBRID_SEL = ["lstm_rf", "gbm", "transformer", "lear", "merit", "chronos"]
 LABEL = {
     "naive": "Naive (d-1/d-7)", "lear": "LEAR (daily recal.)", "lear4": "LEAR 4 windows",

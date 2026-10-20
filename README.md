@@ -202,8 +202,9 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    alone, but they do no harm inside BOA.
 8. **Ablation: 6 diverse members beat all 13.** Greedy backward elimination *selected on 2024
    only* keeps exactly one member per model family — `lstm_rf, gbm, transformer, lear, merit,
-   chronos` — and wins on the untouched 2025–26 holdout: MAE 8.99 vs 9.18; full period 8.56 vs 8.73
-   (DM p < 0.001), better in every year and in RMSE. Redundant siblings
+   chronos` — and wins on the untouched 2025–26 holdout: MAE 8.99 vs 9.18 (DM p = 0.007); full period
+   8.56 vs 8.73 (p < 0.001), better in every year and in RMSE. Before the serving-time weight
+   smoothing the figures are 9.01 vs 9.18 and 8.59 vs 8.74. Redundant siblings
    (both RFs, plain LSTM, TCN, DNN, DDNN, LEAR4) dilute the BOA weights of their better twin:
    BOA's log-N regret bound protects against *bad* experts, not against *correlated* ones.
    Notably the individually weak merit (12.2) and Chronos (14.4) stay in — their errors are the
