@@ -14,11 +14,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from data import DayAheadData
+from data import MARKET, OUT, DayAheadData
 from models import BOACombiner, InverseErrorCombiner
 
 ROOT = Path(__file__).resolve().parents[1]
-PRED, FIG = ROOT / "outputs" / "preds", ROOT / "outputs" / "figures"
+PRED, FIG = OUT / "preds", OUT / "figures"       # OUT: outputs/ (GB) or outputs/<market>/
 EVAL_START = "2024-01-01"
 
 HYBRID = ["rf_long", "rf_short", "lstm", "lstm_rf"]          # members of the online hybrid
@@ -114,7 +114,7 @@ def main():
         for k in order:
             rows.append({"period": period, "model": LABEL[k], **metrics(y[mask], P[k][mask], P["naive"][mask])})
     res = pd.DataFrame(rows)
-    res.to_csv(ROOT / "outputs" / "metrics.csv", index=False)
+    res.to_csv(OUT / "metrics.csv", index=False)
     with pd.option_context("display.float_format", "{:.3f}".format, "display.width", 140):
         for period, g in res.groupby("period", sort=False):
             print(f"\n=== {period} ===\n" + g.drop(columns="period").set_index("model").to_string())
@@ -125,7 +125,7 @@ def main():
         for b in order:
             if a != b:
                 dm.loc[LABEL[a], LABEL[b]] = dm_test(y[ev], P[a][ev], P[b][ev])
-    dm.to_csv(ROOT / "outputs" / "dm_pvalues.csv")
+    dm.to_csv(OUT / "dm_pvalues.csv")
 
     fig, ax = plt.subplots(figsize=(max(9, 0.62 * len(order)), max(7.5, 0.52 * len(order))))
     im = ax.imshow(dm.values.astype(float), cmap="Blues_r", vmin=0, vmax=0.1)
@@ -178,7 +178,7 @@ def main():
 
     hours = (days.values[:, None] + np.arange(24) * np.timedelta64(1, "h")).ravel()
     pd.DataFrame({k: P[k].ravel() for k in order} | {"actual": y.ravel()}, index=pd.DatetimeIndex(hours)) \
-        .to_csv(ROOT / "outputs" / "forecasts_hourly.csv", index_label="datetime_uk_local")
+        .to_csv(OUT / "forecasts_hourly.csv", index_label=f"datetime_{ {'GB': 'uk'}.get(MARKET, MARKET.lower())}_local")
     print(f"\nfigures -> {FIG}")
 
 

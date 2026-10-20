@@ -16,3 +16,8 @@ outputs/forecasts_hourly.csv
 .claude/
 # full-text PDFs for the literature review (publisher licenses: not redistributed)
 literature/pdf/
+# German market (MARKET=DE): same rules
+outputs/de/logs/
+outputs/de/qra_cache_*.npy
+outputs/de/forecasts_hourly.csv
+outputs/de/forecasts_quantiles.csv

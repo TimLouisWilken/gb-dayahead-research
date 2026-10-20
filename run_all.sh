@@ -6,7 +6,9 @@ set -euo pipefail
 cd "$(dirname "$0")/src"
 PY=../.venv/bin/python
 CHRONOS_PY=~/.cache/day-ahead-prediction/venv-chronos/bin/python   # separate env, see run_chronos.py
-LOG=../outputs/logs
+# MARKET=GB (default) or DE: data.py picks the loaders, outputs go to outputs/ or outputs/de/
+export MARKET=${MARKET:-GB}
+if [ "$MARKET" = GB ]; then LOG=../outputs/logs; else LOG=../outputs/$(echo "$MARKET" | tr 'A-Z' 'a-z')/logs; fi
 mkdir -p "$LOG"
 
 $PY -W ignore run_online.py naive > "$LOG/naive.log" 2>&1

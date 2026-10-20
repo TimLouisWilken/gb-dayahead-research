@@ -110,7 +110,7 @@ def cached_qra(F, y, args):
     """QRA is the expensive step; cache it by its inputs so re-evaluation is instant."""
     import hashlib
     key = hashlib.md5(F.tobytes() + y.tobytes() + str(args.refit_every).encode()).hexdigest()[:12]
-    path = ROOT / "outputs" / f"qra_cache_{key}.npy"
+    path = ev.OUT / f"qra_cache_{key}.npy"
     if path.exists():
         return np.load(path)
     Q = qra(F, y, MIN_DAYS, args.refit_every, args.workers)
@@ -188,7 +188,7 @@ def main():
 
     mask = days >= pd.Timestamp(ev.EVAL_START)
     res = pd.DataFrame([evaluate_quantiles(k, v, y, mask) for k, v in Q.items()]).set_index("method")
-    res.to_csv(ROOT / "outputs" / "prob_metrics.csv")
+    res.to_csv(ev.OUT / "prob_metrics.csv")
     with pd.option_context("display.float_format", "{:.3f}".format, "display.width", 160):
         print(f"Probabilistic evaluation {ev.EVAL_START} -> {days[-1].date()} ({mask.sum()} days):")
         print(res.to_string())
@@ -217,9 +217,9 @@ def main():
                             "QRA + adaptive conformal"] if k in Q)
     hours = (days.values[:, None] + np.arange(24) * np.timedelta64(1, "h")).ravel()
     out = pd.DataFrame(Q[best].reshape(-1, len(QUANTILES)), columns=[f"q{int(q * 100):02d}" for q in QUANTILES],
-                       index=pd.DatetimeIndex(hours, name="datetime_uk_local"))
+                       index=pd.DatetimeIndex(hours, name=f"datetime_{ {'GB': 'uk'}.get(ev.MARKET, ev.MARKET.lower())}_local"))
     out["actual"] = y.ravel()
-    out[mask.repeat(24)].to_csv(ROOT / "outputs" / "forecasts_quantiles.csv")
+    out[mask.repeat(24)].to_csv(ev.OUT / "forecasts_quantiles.csv")
     print(f"quantiles of '{best}' -> outputs/forecasts_quantiles.csv")
 
     figures(days, y, Q, mask, best)

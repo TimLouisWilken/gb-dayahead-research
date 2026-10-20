@@ -15,9 +15,10 @@ import numpy as np
 import torch
 from chronos import BaseChronosPipeline
 
+import data as data_mod
 from data import DayAheadData
 
-OUT = Path(__file__).resolve().parents[1] / "outputs" / "preds"
+OUT = data_mod.OUT / "preds"            # outputs/preds (GB) or outputs/<market>/preds
 CONTEXT_DAYS, START = 28, "2023-07-01"
 TAUS = np.round(np.arange(0.05, 0.96, 0.05), 2)
 

@@ -26,8 +26,13 @@ import holidays
 import numpy as np
 import pandas as pd
 
-RAW = Path(__file__).resolve().parents[1] / "data" / "raw"
-TZ = "Europe/London"
+# MARKET selects the bidding zone: "GB" (default) or "DE" (DE-LU, loaders in data_de.py).
+# Outputs of DE runs go to outputs/de/ (see OUT), so the GB results are never overwritten.
+MARKET = os.environ.get("MARKET", "GB").upper()
+ROOT = Path(__file__).resolve().parents[1]
+RAW = ROOT / "data" / "raw"
+TZ = "Europe/London" if MARKET == "GB" else "Europe/Berlin"
+OUT = ROOT / "outputs" if MARKET == "GB" else ROOT / "outputs" / MARKET.lower()
 
 
 # ---------------------------------------------------------------- raw loaders (UTC)
@@ -257,7 +262,9 @@ NEIGH_FEATS = [f"{c}_p_d1" for c in NEIGHBOURS]                  # their D-1 dai
 #   "3": all sets (used by test_leakage.py to audit the superset).
 EXTRA_FEATS = os.environ.get("EXTRA_FEATS", "0")
 if EXTRA_FEATS == "3":                                           # legacy superset alias
-    EXTRA_FEATS = "12456"
+    EXTRA_FEATS = "12456" if MARKET == "GB" else "2"
+if MARKET != "GB" and set(EXTRA_FEATS) - set("02"):
+    raise SystemExit(f"EXTRA_FEATS={EXTRA_FEATS}: only set 2 exists for MARKET={MARKET}")
 EXTRA2_FEATS = ["ttf", "eua", "wind_err_d2", "wind_err_d3"]
 TEMP_FEATS_H = ["temp_pop", "hdd"]                               # hourly, for the delivery day
 TEMP_FEATS_D = ["hdd_d1", "hdd_mean3"]                           # daily lags (building inertia)
@@ -296,14 +303,24 @@ class DayAheadData:
         """extend_to: optional date beyond the last complete price day. Extends the day grid for
         live forecasting: those days get features (which need only information <= D-1) but y = NaN,
         so they are never valid training days. Default behaviour is unchanged."""
-        price_all = to_local_days(load_prices())
+        if MARKET == "DE":
+            import data_de as src
+            price_all = to_local_days(src.load_prices())
+            w_da, s_da = src.load_wind_solar()
+            wind, solar = to_local_days(w_da), to_local_days(s_da)
+            wind_frame = wind
+            temp = to_local_days(src.load_temperature())
+            demand = to_local_days(src.load_demand_outturn())
+            demand_fc = to_local_days(src.load_demand_forecast())
+        else:
+            price_all = to_local_days(load_prices())
+            ws = load_wind_solar()
+            wind = to_local_days(ws["wind_tx"] + ws["emb_wind"])
+            solar = to_local_days(ws["emb_solar"])
+            temp = to_local_days(load_temperature())
+            demand = to_local_days(load_demand_outturn())
+            demand_fc = to_local_days(load_demand_forecast())
         price = price_all
-        ws = load_wind_solar()
-        wind = to_local_days(ws["wind_tx"] + ws["emb_wind"])
-        solar = to_local_days(ws["emb_solar"])
-        temp = to_local_days(load_temperature())
-        demand = to_local_days(load_demand_outturn())
-        demand_fc = to_local_days(load_demand_forecast())
 
         # complete price days define the target range; the first day needs all inputs
         price = price[price.notna().all(1)]
@@ -339,11 +356,12 @@ class DayAheadData:
         hour_sin = np.tile(np.sin(2 * np.pi * hours / 24), (n, 1))
         hour_cos = np.tile(np.cos(2 * np.pi * hours / 24), (n, 1))
 
-        fuel = load_fuel_daily()
+        fuel = src.load_fuel_daily() if MARKET == "DE" else load_fuel_daily()
         fuel = fuel.reindex(pd.date_range(fuel.index.min(), max(fuel.index.max(), self.days.max()), freq="D")).ffill()
-        gas = fuel["gas"].reindex(self.days - pd.Timedelta(days=3)).values      # gas day D-3
+        # GB: gas SAP of gas day D-3; DE: TTF settlement of trading day D-2. Carbon: D-2.
+        gas = fuel["gas"].reindex(self.days - pd.Timedelta(days=3 if MARKET == "GB" else 2)).values
         co2 = fuel["co2"].reindex(self.days - pd.Timedelta(days=2)).values      # settlement of D-2
-        uk_hol = holidays.UnitedKingdom(years=range(2020, 2028))
+        uk_hol = (holidays.UnitedKingdom if MARKET == "GB" else holidays.Germany)(years=range(2018, 2028))
         dow = self.days.dayofweek.values
         doy = self.days.dayofyear.values
         p1 = lag(1)
@@ -351,7 +369,8 @@ class DayAheadData:
             "gas": gas, "co2": co2,
             # short-run marginal cost of a CCGT (~50 % efficiency, 0.37 tCO2/MWh), GBP/MWh_el:
             # gas SAP is in p/kWh_th -> x10 = GBP/MWh_th
-            "fuel_cost": gas * 10 / 0.50 + 0.37 * co2,
+            # (DE: TTF is already in EUR/MWh_th and EUA in EUR/t)
+            "fuel_cost": (gas * 10 if MARKET == "GB" else gas) / 0.50 + 0.37 * co2,
             "dow_sin": np.sin(2 * np.pi * dow / 7), "dow_cos": np.cos(2 * np.pi * dow / 7),
             "doy_sin": np.sin(2 * np.pi * doy / 365.25), "doy_cos": np.cos(2 * np.pi * doy / 365.25),
             "is_holiday": np.array([d in uk_hol for d in self.days.date], dtype=float),
@@ -360,12 +379,17 @@ class DayAheadData:
         }
         if "2" in EXTRA_FEATS:
             # TTF front-month and EUA settlements of trading day D-2 (weekends: last settlement)
-            fuel2 = pd.concat([load_ttf(), load_eua().rename("eua")], axis=1)
-            fuel2 = fuel2.reindex(pd.date_range(fuel2.index.min(), self.days.max(), freq="D")).ffill()
-            daily["ttf"] = fuel2["ttf"].reindex(self.days - pd.Timedelta(days=2)).values
-            daily["eua"] = fuel2["eua"].reindex(self.days - pd.Timedelta(days=2)).values
-            # wind forecast error (transmission): morning D-1 forecast minus outturn, daily mean in GW
-            err = (to_local_days(ws["wind_tx"]) - to_local_days(load_wind_outturn())).mean(axis=1)
+            if MARKET == "DE":
+                # TTF/EUA are already the base fuel inputs in DE: the copies keep the column set
+                daily["ttf"], daily["eua"] = gas, co2
+                err = (wind_frame - to_local_days(src.load_wind_outturn())).mean(axis=1)
+            else:
+                fuel2 = pd.concat([load_ttf(), load_eua().rename("eua")], axis=1)
+                fuel2 = fuel2.reindex(pd.date_range(fuel2.index.min(), self.days.max(), freq="D")).ffill()
+                daily["ttf"] = fuel2["ttf"].reindex(self.days - pd.Timedelta(days=2)).values
+                daily["eua"] = fuel2["eua"].reindex(self.days - pd.Timedelta(days=2)).values
+                # wind forecast error (transmission): morning D-1 forecast minus outturn, daily mean in GW
+                err = (to_local_days(ws["wind_tx"]) - to_local_days(load_wind_outturn())).mean(axis=1)
             e = err.reindex(self.days).ffill().values / 1e3           # ffill = last complete day, causal
             for k in (2, 3):
                 v = np.full(n, np.nan); v[k:] = e[:-k]

@@ -36,9 +36,10 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import numpy as np
 
+import data as data_mod
 from data import DayAheadData
 
-OUT = Path(__file__).resolve().parents[1] / "outputs" / "preds"
+OUT = data_mod.OUT / "preds"            # outputs/preds (GB) or outputs/<market>/preds
 
 
 def main():
