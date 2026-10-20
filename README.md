@@ -162,7 +162,7 @@ rMAE is the MAE relative to the naive forecast.
 | Hybrid BOA all ML (9) | 9.06 | 16.23 | 0.414 | 15.5 |
 | Equal weights, all models (13) | 9.15 | 17.29 | 0.418 | 15.4 |
 | **Hybrid BOA all models (13)** | **8.73** | 16.40 | 0.399 | 14.9 |
-| **Hybrid BOA selected 6** (ablation, see finding 8) | **8.57** | **15.72** | **0.391** | **14.7** |
+| **Hybrid BOA selected 6** (ablation, see finding 8) | **8.56** | **15.72** | **0.391** | **14.7** |
 
 MAE by year:
 
