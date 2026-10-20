@@ -48,8 +48,8 @@ CHRONOS_PY = Path(os.environ.get("CHRONOS_PY",
 # the 13 members of "Hybrid BOA all models" (order = evaluate.HYBRID_ALL) + naive reference
 MEMBERS = ["rf_long", "rf_short", "lstm", "lstm_rf", "gbm", "tcn", "transformer", "dnn", "ddnn",
            "lear", "lear4", "merit", "chronos"]
-# ablation-selected subset (backward elimination on 2024 only, validated on 2025-26: MAE 9.18
-# vs 9.47 of the full set, DM p = 0.002): one member per model family
+# ablation-selected subset (backward elimination on 2024 only, validated on 2025-26: MAE 8.99
+# vs 9.18 of the full set with serving-time smoothing, DM p = 0.007): one member per model family
 SELECT6 = ["lstm_rf", "gbm", "transformer", "lear", "merit", "chronos"]
 # dedicated GBM tail forecasts (pinball loss, EXTRA_FEATS=2): QRA regressors only, never in BOA.
 # Selected on 2024 / confirmed on the 2025-26 holdout (DM p = 0.038, spike q90 coverage 65->68 %).
