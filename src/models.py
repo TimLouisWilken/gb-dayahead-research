@@ -462,8 +462,17 @@ class LEARMember:
     profiles of d-1, d-2, d-7 prices and of the day-ahead residual load plus the
     hour's own exogenous inputs. Forecast = mean over calibration windows."""
 
-    def __init__(self, windows=(182, 728)):
+    def __init__(self, windows=(182, 728), guard=None):
         self.windows = windows
+        # Extrapolation guard: a regressor that is almost constant in the calibration window (e.g.
+        # solar at 20:00 in a winter window) can take a value of hundreds of window standard
+        # deviations on a later day, and the inverse asinh turns the linear extrapolation into an
+        # exploding price (DE: two days with |forecast| > 10^4). The guard clips standardised
+        # inputs to +-10 and the forecast to the window's asinh range +-1. On by default for DE
+        # (LEAR_GUARD env var); off for GB, whose published results were produced without it.
+        if guard is None:
+            guard = os.environ.get("LEAR_GUARD", "0" if os.environ.get("MARKET", "GB").upper() == "GB" else "1") == "1"
+        self.guard = guard
 
     def _X(self, data, idx, ps):
         c = data.tab_cols.index
@@ -487,11 +496,14 @@ class LEARMember:
             ps = AsinhScaler().fit(data.y[idx])
             Xs = self._X(data, idx, ps)
             Z = ps.transform(data.y[idx])
+            zr = (np.nanmin(Z) - 1.0, np.nanmax(Z) + 1.0)
             per_h = []
             for h in range(24):
                 keep = Xs[h].std(0) > 1e-8                 # drop columns constant in this window
                 sc = StandardScaler().fit(Xs[h][:, keep])
                 Xh = sc.transform(Xs[h][:, keep])
+                if self.guard:
+                    Xh = np.clip(Xh, -10, 10)
                 try:
                     if Xh.shape[0] > Xh.shape[1] + 10:
                         m = LassoLarsIC(criterion="aic", max_iter=500).fit(Xh, Z[:, h])
@@ -501,15 +513,20 @@ class LEARMember:
                 except (ValueError, KeyError):              # rare LARS degeneracy -> plain Lasso
                     m = Lasso(alpha=1e-3, max_iter=5000).fit(Xh, Z[:, h])
                 per_h.append((keep, sc, m))
-            self.models.append((ps, per_h))
+            self.models.append((ps, per_h, zr))
         return self
 
     def predict(self, data, idx):
         idx = np.atleast_1d(idx)
         preds = []
-        for ps, per_h in self.models:
+        for ps, per_h, zr in self.models:
             Xs = self._X(data, idx, ps)
-            z = np.stack([m.predict(sc.transform(Xs[h][:, k])) for h, (k, sc, m) in enumerate(per_h)], 1)
+            if self.guard:
+                z = np.stack([m.predict(np.clip(sc.transform(Xs[h][:, k]), -10, 10))
+                              for h, (k, sc, m) in enumerate(per_h)], 1)
+                z = np.clip(z, *zr)
+            else:
+                z = np.stack([m.predict(sc.transform(Xs[h][:, k])) for h, (k, sc, m) in enumerate(per_h)], 1)
             preds.append(ps.inverse(z))
         return np.mean(preds, 0)
 

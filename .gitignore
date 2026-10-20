@@ -21,3 +21,7 @@ outputs/de/logs/
 outputs/de/qra_cache_*.npy
 outputs/de/forecasts_hourly.csv
 outputs/de/forecasts_quantiles.csv
+outputs/de_tso/logs/
+outputs/de_tso/qra_cache_*.npy
+outputs/de_tso/forecasts_hourly.csv
+outputs/de_tso/forecasts_quantiles.csv

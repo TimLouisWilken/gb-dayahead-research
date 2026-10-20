@@ -33,6 +33,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 TZ = "Europe/London" if MARKET == "GB" else "Europe/Berlin"
 OUT = ROOT / "outputs" if MARKET == "GB" else ROOT / "outputs" / MARKET.lower()
+if MARKET == "DE" and os.environ.get("DE_RENEW", "weather") == "tso":
+    OUT = ROOT / "outputs" / "de_tso"     # comparison variant with the TSO wind/solar forecasts
 
 
 # ---------------------------------------------------------------- raw loaders (UTC)
