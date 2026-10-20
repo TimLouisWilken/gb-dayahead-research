@@ -418,6 +418,20 @@ persistent QRA state. Member forecasts for past days are genuinely out-of-sample
   before the gate closures (EPEX 09:20, N2EX 09:50 UK). A run missed while the Mac sleeps fires on
   the next wake. Disable with `launchctl unload ~/Library/LaunchAgents/com.dayahead.live.plist`.
 
+## Transfer to Germany (work in progress)
+
+`MARKET=DE ./run_all.sh` runs the same pipeline on the German DE-LU day-ahead market (SMARD
+data, decision time 10:00 Europe/Berlin on D-1, GB hyper-parameters unchanged). Interim result,
+2024 to Oct 2026: Hybrid BOA has an MAE of 13.5 EUR/MWh (rMAE 0.46), 13 % below LEAR. Continual
+learning again gives the largest gain.
+
+The problem is the data, not the method. In Germany the TSO wind and solar forecasts appear only
+after the auction (observed on SMARD: 18:05–18:15 CEST on D-1, gate closure 12:00). The strict
+variant therefore uses its own weather-based proxies, whose errors are about 2.5 times larger. With
+the post-auction TSO forecasts the same ensemble would reach rMAE 0.39, the GB level. For now the
+German variant is a documented transfer study, not a showcase result. Details, numbers and options
+are in [docs/DE_TRANSFER.md](docs/DE_TRANSFER.md).
+
 ## Limitations and next steps
 
 - The NDF archive starts on 2021-04-28 and has gaps in May–June 2021, so training starts on 2021-07-07.
