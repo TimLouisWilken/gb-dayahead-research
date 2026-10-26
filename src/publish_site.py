@@ -37,6 +37,15 @@ def load_prices_by_day():
     return {d: row for d, row in zip(tl.index, tl.values) if np.isfinite(row).all()}
 
 
+QBAND = ("q05", "q25", "q50", "q75", "q95")
+QRA8_LIVE_SINCE = pd.Timestamp("2026-10-27")     # first delivery day published with centred QRA-8
+
+
+def bands(q):
+    """(24, 19) quantile array -> the five band columns shown on the page."""
+    return {c: [round(float(v), 2) for v in q[:, i]] for c, i in zip(QBAND, (0, 4, 9, 14, 18))}
+
+
 def naive(price_by_day, d):
     """Standard EPF naive: Tue-Fri = yesterday, Mon/Sat/Sun = same day last week."""
     ref = d - pd.Timedelta(days=1 if d.dayofweek in (1, 2, 3, 4) else 7)
@@ -81,6 +90,8 @@ def main():
     # CURRENT system (BOA selected-6, weight smoothing) + centred QRA-8 + ACI quantiles. Curve
     # days before the live era are badged "backtest"; error statistics cover the full eval period.
     bt_days, bt_err = {}, {}
+    live_fc = {pd.Timestamp(f.stem.replace("forecast_", "")): pd.read_csv(f) for f in files}
+    Qc, qix = None, {}
     try:
         import evaluate as ev
         from models import BOACombiner
@@ -90,9 +101,15 @@ def main():
         nv_r = P.get("naive")
         z = np.load(ROOT / "outputs" / "live_state" / "qra8_state.npz")
         qd, Qr = pd.DatetimeIndex(z["days"]), z["Q"]
-        yq = np.stack([pbd.get(d, np.full(24, np.nan)) for d in qd])
-        Qc = conformalize(centre(Qr, z["point"]), yq, 2 * MIN_DAYS, gamma=0.005)
         qix = {d: i for i, d in enumerate(qd)}
+        # centre live days on the forecast that was actually published (the first live day was
+        # produced on the Mac and differs from the state's re-run point path by up to 14 EUR)
+        point = z["point"].copy()
+        for d, fc in live_fc.items():
+            if d in qix:
+                point[qix[d]] = fc["boa_select6"].values
+        yq = np.stack([pbd.get(d, np.full(24, np.nan)) for d in qd])
+        Qc = conformalize(centre(Qr, point), yq, 2 * MIN_DAYS, gamma=0.005)
         for i, d in enumerate(rdays):
             if d not in pbd:
                 continue
@@ -104,11 +121,20 @@ def main():
             bt_days[d] = {"date": str(d.date()), "src": "backtest",
                           "actual": [round(float(v), 2) for v in pbd[d]],
                           "forecast": [round(float(v), 2) for v in pred[i]],
-                          **({"q05": [round(float(v), 2) for v in q[:, 0]],
-                              "q25": [round(float(v), 2) for v in q[:, 4]],
-                              "q50": [round(float(v), 2) for v in q[:, 9]],
-                              "q75": [round(float(v), 2) for v in q[:, 14]],
-                              "q95": [round(float(v), 2) for v in q[:, 18]]} if q is not None else {})}
+                          **(bands(q) if q is not None else {})}
+        # gap between the end of the research run and the first live day: the member forecasts
+        # exist in the live panel (catch-up runs, predict first, then learn), so these days are
+        # reconstructed from the state's point path and badged "backtest" as well
+        for d, j in qix.items():
+            if d <= rdays[-1] or d in live_fc or d not in pbd or not np.isfinite(Qc[j]).all():
+                continue
+            nv = naive(pbd, d)
+            bt_err[d] = (float(np.abs(point[j] - pbd[d]).mean()),
+                         None if nv is None else float(np.abs(nv - pbd[d]).mean()))
+            bt_days[d] = {"date": str(d.date()), "src": "backtest",
+                          "actual": [round(float(v), 2) for v in pbd[d]],
+                          "forecast": [round(float(v), 2) for v in point[j]],
+                          **bands(Qc[j])}
     except Exception as e:
         print(f"WARNING backtest reconstruction skipped: {e}")
 
@@ -119,22 +145,26 @@ def main():
         if d not in pbd:
             continue
         y = pbd[d]
-        fc = pd.read_csv(f)
+        fc = live_fc[d]
         nv = naive(pbd, d)
+        # days published with the old QRA-15 band: show the band of the current system instead
+        # (centred on the published point forecast), flagged so the page can say so
+        j = qix.get(d)
+        redo = d < QRA8_LIVE_SINCE and j is not None and Qc is not None and np.isfinite(Qc[j]).all()
+        band = bands(Qc[j]) if redo else {c: [round(v, 2) for v in fc[c]] for c in QBAND if c in fc}
         hist.append({"date": str(d.date()),
                      "mae": round(float(np.abs(fc["boa_select6"] - y).mean()), 2),
                      "mae_all13": round(float(np.abs(fc["boa_all"] - y).mean()), 2),
                      "mae_naive": None if nv is None else round(float(np.abs(nv - y).mean()), 2),
-                     "cov90": round(float(np.mean((y >= fc["q05"]) & (y <= fc["q95"]))), 3)
-                     if {"q05", "q95"} <= set(fc) else None})
+                     "cov90": round(float(np.mean((y >= np.array(band["q05"])) & (y <= np.array(band["q95"])))), 3)
+                     if {"q05", "q95"} <= set(band) else None})
         # per-day comparison view: only a short recent window of actual auction prices is
         # republished (source: Nord Pool N2EX), the full history stays derived-statistics-only
         live_dates.add(d)
         days_out.append({"date": str(d.date()), "src": "live",
                          "actual": [round(float(v), 2) for v in y],
                          "forecast": [round(v, 2) for v in fc["boa_select6"]],
-                         **{c: [round(v, 2) for v in fc[c]] for c in ("q05", "q25", "q50", "q75", "q95")
-                            if c in fc}})
+                         **band, **({"band": "recomputed"} if redo else {})})
     # error statistics: full eval period (backtest) + live days on top
     live_err = {pd.Timestamp(h["date"]): h for h in hist}
     full = []
