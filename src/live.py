@@ -12,8 +12,9 @@ and before the EPEX/N2EX gate closures at 09:20/09:50 UK time):
      cold-refitting every 91 days as in the research runs
   3. combine: BOA over all members (weights warm-started from the full out-of-sample history
      since 2023-07), the ablation-selected 6-member BOA, and equal weights
-  4. quantiles: QRA over all members + adaptive conformal (the exported product of
-     probabilistic.py), extended incrementally from a persistent QRA state
+  4. quantiles: QRA over the 6 selected members + 2 GBM tails, centred on the selected-6 BOA
+     forecast, + adaptive conformal (the exported product of probabilistic.py), extended
+     incrementally from a persistent QRA state
 
 Output: outputs/live/forecast_<target>.csv (+ a row appended to outputs/live/history.csv).
 Every member forecast for a past day is genuinely out-of-sample (made before its price was
@@ -54,12 +55,15 @@ SELECT6 = ["lstm_rf", "gbm", "transformer", "lear", "merit", "chronos"]
 # dedicated GBM tail forecasts (pinball loss, EXTRA_FEATS=2): QRA regressors only, never in BOA.
 # Selected on 2024 / confirmed on the 2025-26 holdout (DM p = 0.038, spike q90 coverage 65->68 %).
 TAILS = ["gbm_q10", "gbm_q90"]
-QRA_MEMBERS = MEMBERS + TAILS
+RUN = MEMBERS + TAILS                                      # every member that is run daily
+# QRA regressors: selected 6 + tails, quantiles centred on the selected-6 BOA forecast
+# (2025-26 holdout APL 3.554 vs 3.780 for QRA-15, DM p < 0.001; see probabilistic.QRA_SEL)
+QRA_MEMBERS = SELECT6 + TAILS
 NEURAL = {"lstm": {}, "tcn": {"arch": "tcn"}, "transformer": {"arch": "transformer"},
           "dnn": {"arch": "mlp"}, "ddnn": {"dist": "jsu"}}
 LSTM_CFG = dict(hidden=64, revin=True, half_life=365)      # as in run_online.py
 UPDATE_STEPS = ["prices_live", "demand_live", "embedded_live", "windfor", "ndf",
-                "ttf", "windout", "weather", "gas", "carbon"]
+                "ttf", "eua", "windout", "weather", "gas", "carbon"]
 QUANTILES = np.round(np.arange(0.05, 0.96, 0.05), 2)
 QRA_WINDOW, MIN_DAYS, ACI_GAMMA = 182, 56, 0.005           # as in probabilistic.py
 
@@ -183,25 +187,29 @@ def worker(m, target):
 
 # ------------------------------------------------------------------ combination + quantiles
 def boa_over(panel, y_map, members, dates, target):
-    """Run BOA over all dates with known prices, return the target combination + final weights."""
+    """Run BOA over all dates with known prices, return the target combination, the final weights
+    and the combinations of all dates up to the target (each made before its price was known)."""
     from models import BOACombiner
     comb = BOACombiner(len(members))
     F = np.stack([panel[m].loc[dates].values for m in members], -1)       # (n, 24, K)
+    path = np.full((len(dates), 24), np.nan)
     for i, d in enumerate(dates):
+        path[i] = comb.combine(F[i])
         if d == target:
-            return comb.combine(F[i]), comb.w
+            return path[i], comb.w, path
         comb.update(F[i], y_map[d])
     raise ValueError("target not in panel")
 
 
-def qra_quantiles(panel, y_map, dates, target, workers):
-    """QRA over all members + adaptive conformal for the target day, with persistent raw-QRA
-    state (incremental daily extension; the full-history bootstrap runs once)."""
+def qra_quantiles(panel, y_map, dates, target, workers, point):
+    """QRA over the selected members + tails, centred on `point` (selected-6 BOA, all dates),
+    + adaptive conformal for the target day, with persistent raw-QRA state (incremental daily
+    extension; the full-history bootstrap runs once)."""
     sys.path.insert(0, str(Path(__file__).parent))
-    from probabilistic import _qra_block, conformalize
+    from probabilistic import _qra_block, centre, conformalize
     F = np.stack([panel[m].loc[dates].values for m in QRA_MEMBERS], -1)
     y = np.stack([y_map.get(d, np.full(24, np.nan)) for d in dates])
-    sf = STATE / "qra15_state.npz"
+    sf = STATE / "qra8_state.npz"
     Q = np.full((len(dates), 24, len(QUANTILES)), np.nan)
     have = 0
     if sf.exists():
@@ -224,8 +232,9 @@ def qra_quantiles(panel, y_map, dates, target, workers):
             for part in ex.map(_qra_block, [(F, y, b, 1) for b in blocks if len(b)]):
                 for t, q in part.items():
                     Q[t] = np.sort(q, axis=-1)
-    np.savez(sf, days=dates.values.astype("datetime64[D]"), Q=Q)
-    Qc = conformalize(Q, y, 2 * MIN_DAYS, gamma=ACI_GAMMA)
+    # the point path is stored too, so publish_site.py can rebuild the centred backtest bands
+    np.savez(sf, days=dates.values.astype("datetime64[D]"), Q=Q, point=point)
+    Qc = conformalize(centre(Q, point), y, 2 * MIN_DAYS, gamma=ACI_GAMMA)
     return Qc[dates.get_loc(target)]
 
 
@@ -269,7 +278,7 @@ def main():
         py, script = (str(CHRONOS_PY), ["run_chronos.py", "--live", str(target.date())]) if m == "chronos" \
             else (PY, ["live.py", "--worker", m, "--target", str(target.date())])
         return subprocess.Popen([py, "-W", "ignore"] + script, env=env, cwd=Path(__file__).parent)
-    wave1 = [m for m in QRA_MEMBERS if m != "lstm_rf"]
+    wave1 = [m for m in RUN if m != "lstm_rf"]
     if not CHRONOS_PY.exists():
         wave1.remove("chronos")
         print("WARNING: chronos venv missing -> member skipped")
@@ -280,7 +289,7 @@ def main():
             raise SystemExit(f"member(s) failed: {fail}")
 
     # combination over the common forecast history
-    panel = {m: member_panel(m) for m in QRA_MEMBERS if (STATE / f"preds_{m}.csv").exists() or (PRED / f"{m}.npz").exists()}
+    panel = {m: member_panel(m) for m in RUN if (STATE / f"preds_{m}.csv").exists() or (PRED / f"{m}.npz").exists()}
     dates = sorted(set.intersection(*[set(p.index) for p in panel.values()]))
     dates = pd.DatetimeIndex([d for d in dates if d <= target])
     y_map = {d: data.y[data.index_of(d)].astype(np.float64) for d in dates
@@ -288,10 +297,10 @@ def main():
     past = [d for d in dates if d in y_map and d < target]
     print(f"forecast history: {dates[0].date()} -> {dates[-1].date()} ({len(past)} evaluated days)")
 
-    boa_all, w_all = boa_over(panel, y_map, MEMBERS, dates, target)
-    boa_sel, _ = boa_over(panel, y_map, SELECT6, dates, target)
+    boa_all, w_all, _ = boa_over(panel, y_map, MEMBERS, dates, target)
+    boa_sel, _, sel_path = boa_over(panel, y_map, SELECT6, dates, target)
     eq_all = np.mean([panel[m].loc[target].values for m in MEMBERS], 0)
-    quant = qra_quantiles(panel, y_map, dates, target, args.workers)
+    quant = qra_quantiles(panel, y_map, dates, target, args.workers, sel_path)
 
     # output file: one row per hour of the local delivery day
     out = pd.DataFrame({"hour_local": range(24),

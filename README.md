@@ -13,7 +13,7 @@ Out of sample, 2024-01-01 → 2026-09-27, strict 07:30 UTC D-1 information set:
 |---|---|
 | Point forecast, **Hybrid BOA over all 13 members** | MAE **8.73 EUR/MWh**, 21 % below the LEAR benchmark (11.07) and better than every single model (DM p < 0.001) |
 | Point forecast, **6-member selection** (chosen on 2024 only, used in the live system) | MAE **8.56 EUR/MWh**, better than all 13 in every year (DM p < 0.001) |
-| Quantiles, **QRA-15 + adaptive conformal** | 50 / 80 / 90 % intervals cover 49.4 / 79.5 / 89.6 % |
+| Quantiles, **QRA-8 centred + adaptive conformal** | avg pinball 3.39, 6 % below QRA-15 (DM p < 0.001); 50 / 80 / 90 % intervals cover 49.3 / 79.2 / 89.4 %; median consistent with the point forecast |
 | **Battery backtest** (50 MW / 100 MWh, day-ahead only) | 93.1 % (2025) and 93.7 % (2026) of the perfect-foresight arbitrage revenue, against 89.9 / 90.4 % for LEAR |
 | Largest single gain | continual learning: online RF 11.58 vs the same model trained once 17.12 |
 
@@ -47,7 +47,9 @@ newest data. The project started as an *online* hybrid of four core members:
 Benchmarks: naive (Lago et al., 2021), **LEAR** with daily recalibration (182/728-day windows averaged),
 and *static* RF / LSTM that are trained once and never updated (the continual-learning ablation).
 Final products: **Hybrid BOA all models** (BOA over all 13 members) for the point forecast and
-**QRA-15 + adaptive conformal** for the quantiles (QRA over all 13 members plus two dedicated GBM tail forecasts).
+**QRA-8 centred + adaptive conformal** for the quantiles. It is a QRA over the selected 6 members
+plus two dedicated GBM tail forecasts, centred on the selected-6 BOA forecast; until 2026-10 it was
+QRA-15, a QRA over all 13 members plus the tails.
 
 ---
 
@@ -272,6 +274,7 @@ recalibrated every day on the last 182 days.
 | **QRA + adaptive conformal** | As above, but the residual quantile level is adjusted after every day from the realised hit rate (adaptive conformal inference, Gibbs & Candès, 2021; γ = 0.005 from the paper, not tuned) |
 | QRA all models (± adaptive conformal) | QRA over all 13 members instead of the 5 core members |
 | **QRA-15** (± adaptive conformal) | QRA over all 13 members **plus two dedicated GBM tail forecasts** (pinball-loss `gbm_q10`/`gbm_q90`): mean forecasts under-spread in spike regimes, the tails inform the design matrix directly |
+| **QRA-8 centred** + adaptive conformal | QRA over the **6 BOA-selected members + the 2 GBM tails** (9 instead of 16 coefficients per formula). All 19 raw quantiles are then shifted by (selected-6 BOA point forecast − q50), so the band keeps QRA's shape but sits on the better median, then adaptive conformal recalibrates. The idea of a band around the point forecast is standard practice; this particular combination is our own |
 | Distributional LSTM / Chronos (direct) | the quantiles those models output themselves, no post-processing |
 
 Evaluation:
@@ -284,14 +287,16 @@ Results, 2024-01-01 → 2026-09-27, with daily recalibration:
 
 | Method | Avg pinball ↓ | 50 % cov. | 80 % cov. | 90 % cov. | 80 % width | 90 % width |
 |---|---|---|---|---|---|---|
-| HS (Hybrid BOA, LSTM + RF) | 3.87 | 49.2 % | 78.6 % | 88.3 % | 27.7 | 41.4 |
+| HS (Hybrid BOA, LSTM + RF) | 3.84 | 49.0 % | 78.6 % | 88.4 % | 27.6 | 41.2 |
 | QRA (5 members) | 3.67 | 45.6 % | 74.4 % | 84.6 % | 26.0 | 36.8 |
 | QRA + conformal | 3.68 | 48.2 % | 77.6 % | 87.5 % | 29.2 | 42.2 |
 | QRA + adaptive conformal | 3.69 | 49.2 % | 79.2 % | 89.4 % | 30.8 | 47.2 |
 | QRA all models (raw) | 3.60 | 44.2 % | 72.6 % | 82.7 % | 25.0 | 35.1 |
 | QRA all models + adaptive conformal | 3.62 | 49.1 % | 79.3 % | 89.6 % | 30.3 | 45.9 |
 | QRA-15 (raw) | 3.58 | 44.1 % | 72.3 % | 82.9 % | 25.5 | 34.5 |
-| **QRA-15 + adaptive conformal** | **3.59** | **49.4 %** | **79.5 %** | **89.6 %** | 30.3 | 43.4 |
+| QRA-15 + adaptive conformal (product until 2026-10) | 3.59 | 49.4 % | 79.5 % | 89.6 % | 30.3 | 43.4 |
+| QRA-8 (raw) | 3.44 | 45.1 % | 73.6 % | 84.4 % | 25.3 | 34.8 |
+| **QRA-8 centred + adaptive conformal** | **3.39** | **49.3 %** | **79.2 %** | **89.4 %** | 29.2 | 42.6 |
 | QRA LSTM + RF only | 3.85 | 45.7 % | 74.0 % | 84.7 % | 26.6 | 38.8 |
 | QRA LSTM + RF only + adaptive conformal | 3.86 | 48.8 % | 79.1 % | 89.2 % | 31.9 | 49.3 |
 | Distributional LSTM (direct) | 3.96 | 39.3 % | 67.3 % | 79.3 % | 24.8 | 34.5 |
@@ -299,14 +304,32 @@ Results, 2024-01-01 → 2026-09-27, with daily recalibration:
 
 - **Plain QRA is overconfident.** Its 90 % band covers only 83–85 %. The conformal correction fixes this,
   and the adaptive version hits all nominal levels within about 1 point, at almost no cost in pinball loss.
-- **QRA-15 is the best distribution**: the 13-member QRA already beats the 5-member QRA (p = 0.009);
+- **QRA-15 beats the smaller core QRA**: the 13-member QRA beats the 5-member QRA (p = 0.009);
   adding the two GBM tail forecasts improves it further (p = 0.016), mostly in spike hours
   (selection year 2024: spike q90 coverage 65 → 68 %, spike pinball −3 %; holdout confirmed, p = 0.038).
+- **But fewer, diverse regressors plus centring beat QRA-15** (`src/qra_lean_experiment.py`; four
+  variants pre-registered, selected on 2024, tested on the 2025–26 holdout):
+
+  | + adaptive conformal | APL 2024 (selection) | APL 2025–26 (holdout) | DM p vs QRA-15 (holdout) |
+  |---|---|---|---|
+  | QRA-15 | 3.262 | 3.780 | – |
+  | QRA-8 (selected 6 + tails) | 3.151 | 3.628 | < 0.001 |
+  | QRA-15 centred | 3.109 | 3.608 | < 0.001 |
+  | **QRA-8 centred** | **3.096** | **3.554** | **< 0.001** |
+
+  The 5-member core set lost to all 13 because it held five near-siblings. The selected 6 come
+  from six different model families, and with them the unconstrained QRA coefficients are more
+  stable on the 182-day window. This is the same lesson as for BOA (finding 8). Centring adds a
+  further gain (QRA-8 centred vs QRA-8: p = 0.002). q50 now has an MAE of 8.60, against 9.25
+  before, and it matches the published point forecast (8.57). Coverage stays within ~1 point of
+  nominal. One trade-off: in spike hours QRA-8 is slightly worse than QRA-15 (spike pinball 9.32
+  vs 9.24 over 2024–26, equal on the holdout), so the siblings carried a little spike information.
 - The models' **own** distributions are too narrow on their own (DDNN covers 79 % at nominal 90 %) —
   but as members inside QRA they contribute.
 - **Without LEAR, QRA adds nothing over HS** (p = 0.40). For a pure LSTM + RF model, historical
   simulation is the simpler equivalent choice.
-- `outputs/forecasts_quantiles.csv` holds the quantiles of **QRA-15 + adaptive conformal**.
+- `outputs/forecasts_quantiles.csv` holds the quantiles of **QRA-8 centred + adaptive conformal**
+  (the live product since 2026-10-26; QRA-15 before).
 
 ![Fan chart](outputs/figures/prob_fan_chart.png)
 ![Reliability](outputs/figures/prob_reliability.png)
@@ -404,8 +427,9 @@ One run (1) refreshes all inputs including the three live top-ups, (2) catches u
 rolling-origin simulation per member over any days missed since the last run — predict first,
 then learn, exactly as in `run_online.py` — and forecasts the target day, (3) combines with BOA
 (all 13 members and the selected 6; weights warm-started from the full out-of-sample history
-since 2023-07), (4) produces the QRA-all-members + adaptive-conformal quantiles from a
-persistent QRA state. Member forecasts for past days are genuinely out-of-sample, so
+since 2023-07), (4) produces the QRA-8 quantiles (selected 6 + GBM tails), centred on the
+selected-6 BOA forecast, + adaptive conformal, from a persistent QRA state
+(`outputs/live_state/qra8_state.npz`). Member forecasts for past days are genuinely out-of-sample, so
 `outputs/live_state/preds_*.csv` double as a continuing evaluation set.
 
 - Neural members keep their fine-tuned weights in `outputs/live_state/*.pkl` (daily replay
@@ -435,10 +459,21 @@ are in [docs/DE_TRANSFER.md](docs/DE_TRANSFER.md).
 ## Limitations and next steps
 
 - The NDF archive starts on 2021-04-28 and has gaps in May–June 2021, so training starts on 2021-07-07.
+- **Next planned experiment:** regime-conditional BOA weights. The weights are conditioned on a
+  pre-auction state, such as residual-load terciles, so the combination does not have to re-learn
+  recurring states. Design, leakage rules and decision rule are in
+  [docs/NEXT_REGIME_WEIGHTS.md](docs/NEXT_REGIME_WEIGHTS.md).
 - Natural extensions:
   - multivariate/joint scenarios across the 24 hours, e.g. for battery dispatch;
   - CRPS learning of the quantile combination (Berrisch & Ziel, 2023);
   - drift detection to trigger LSTM retrains (Gomes et al., 2017; Nasiadka et al., 2022).
-- Live-mode caveats: gas SAP (ONS) lags ~1 week and UKA needs a manual export, so in live runs both
-  are forward-filled a few days more than in the backtest; the EUA series (only used by `gbm`) ends
-  in Dec 2025 and is forward-filled since.
+- Live-mode caveats:
+  - Gas SAP (ONS) lags ~1 week, so in live runs it is forward-filled a few days more than in the
+    backtest.
+  - UKA has no free API and needs a manual investing.com export, about monthly. Between exports
+    it is carried forward with the EUA's relative moves instead of being frozen (2023–26: error of
+    a 20-trading-day-old UKA 4.9 → 3.9 GBP/t). The log warns once the last quote is > 35 days old.
+  - EUA, used only by `gbm`: the investing.com export ends in Dec 2025. Since then it continues
+    with the SparkChange EUA ETC (Yahoo `CO2.L`, `update_data.py eua`), rescaled by the
+    futures/ETC ratio of the last 20 common days (daily-return correlation 0.95 in 2024–25).
+    The published `gbm` research forecasts for 2026 were made with the forward-filled series.

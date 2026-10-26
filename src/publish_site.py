@@ -3,7 +3,7 @@
 Builds two JSON files from outputs/live/ and pushes them to the site repo
 (a plain clone outside iCloud, default ~/.cache/day-ahead-prediction/site):
 
-  data/latest.json    the newest day-ahead forecast: point forecasts + QRA-15 quantiles
+  data/latest.json    the newest day-ahead forecast: point forecasts + centred QRA-8 quantiles
   data/history.json   daily MAE of the published forecasts vs the naive benchmark
                       (derived statistics only - raw exchange prices are not redistributed)
 
@@ -63,7 +63,7 @@ def main():
         "generated_utc": pd.Timestamp.now("UTC").round("s").isoformat().replace("+00:00", "Z"),
         "timezone": "Europe/London (hour_local)",
         "unit": "EUR/MWh",
-        "model": "online hybrid ensemble (BOA, 6 selected members) + QRA-15 quantiles + adaptive conformal",
+        "model": "online hybrid ensemble (BOA, 6 selected members) + centred QRA-8 quantiles + adaptive conformal",
         "hours": df["hour_local"].tolist(),
         "forecast": [round(v, 2) for v in df["boa_select6"]],
         "forecast_all13": [round(v, 2) for v in df["boa_all"]],
@@ -78,20 +78,20 @@ def main():
         print(f"WARNING prices unavailable ({e}); history not updated")
         pbd = {}
     # --- backtest reconstruction: the research out-of-sample history, combined with the
-    # CURRENT system (BOA selected-6, weight smoothing) + QRA-15 + ACI quantiles. Curve days
-    # before the live era are badged "backtest"; error statistics cover the full eval period.
+    # CURRENT system (BOA selected-6, weight smoothing) + centred QRA-8 + ACI quantiles. Curve
+    # days before the live era are badged "backtest"; error statistics cover the full eval period.
     bt_days, bt_err = {}, {}
     try:
         import evaluate as ev
         from models import BOACombiner
-        from probabilistic import MIN_DAYS, conformalize
+        from probabilistic import MIN_DAYS, centre, conformalize
         rdays, ry, P = ev.load()
         pred, _ = ev.run_combiner(BOACombiner(len(ev.HYBRID_SEL)), ev.HYBRID_SEL, P, ry)
         nv_r = P.get("naive")
-        z = np.load(ROOT / "outputs" / "live_state" / "qra15_state.npz")
+        z = np.load(ROOT / "outputs" / "live_state" / "qra8_state.npz")
         qd, Qr = pd.DatetimeIndex(z["days"]), z["Q"]
         yq = np.stack([pbd.get(d, np.full(24, np.nan)) for d in qd])
-        Qc = conformalize(Qr, yq, 2 * MIN_DAYS, gamma=0.005)
+        Qc = conformalize(centre(Qr, z["point"]), yq, 2 * MIN_DAYS, gamma=0.005)
         qix = {d: i for i, d in enumerate(qd)}
         for i, d in enumerate(rdays):
             if d not in pbd:

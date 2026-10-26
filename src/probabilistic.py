@@ -13,6 +13,10 @@ Methods (both use only out-of-sample forecasts of days < t, recalibrated on a ro
   QRA+C QRA with a conformal correction (cf. conformalized quantile regression, Romano, Patterson
         & Candès, 2019): each quantile of each hour is shifted by the empirical tau-quantile of
         its own past out-of-sample residuals y - q (last WINDOW days), restoring calibration
+  QRA-8 centred (exported product): QRA over the 6 BOA-selected members + the 2 GBM tails, all
+        19 raw quantiles shifted by (BOA-selected point forecast - q50), then + ACI. Fewer,
+        less correlated regressors stabilise the coefficients; centring puts the band on the
+        better median and makes q50 consistent with the published point forecast
 
 Quantile crossing is removed by sorting (Chernozhukov, Fernández-Val & Galichon, 2010).
 Evaluation: average pinball loss over 19 quantiles (≈ CRPS/2, Gneiting & Raftery, 2007),
@@ -46,8 +50,18 @@ QRA_MEMBERS_NN_RF = ["lstm", "lstm_rf", "rf_long", "rf_short"]       # pure LSTM
 # mean forecasts under-spread in spike regimes, the tails inform the design matrix directly.
 # Selected on 2024 (spike coverage 65->68 %), confirmed on the 2025-26 holdout (DM p = 0.038).
 QRA_TAILS = ["gbm_q10", "gbm_q90"]
+# exported product: QRA over the 6 BOA-selected members + tails, centred on the BOA-selected point
+# forecast. Selected on 2024 (APL 3.096 vs 3.262 for QRA-15), confirmed on the 2025-26 holdout
+# (3.554 vs 3.780, DM p < 0.001; centring alone vs uncentred QRA-8: p = 0.002). src/qra_lean_experiment.py
+QRA_SEL = ["lstm_rf", "gbm", "transformer", "lear", "merit", "chronos"] + QRA_TAILS
 WINDOW = 182                                                     # calibration window (days)
 MIN_DAYS = 56                                                    # first forecast needs this many past days
+I50 = list(QUANTILES).index(0.5)
+
+
+def centre(Q, point):
+    """Shift all quantiles by (point - q50): keeps QRA's band shape, uses the point forecast as median."""
+    return np.sort(Q + (point - Q[..., I50])[..., None], axis=-1)
 
 
 def pinball(y, q, tau):
@@ -183,6 +197,11 @@ def main():
     if all(m in P for m in ev.HYBRID_ALL + QRA_TAILS):
         Q["QRA-15 (+GBM tails)"] = cached_qra(np.stack([P[m] for m in ev.HYBRID_ALL + QRA_TAILS], -1), y, args)
         Q["QRA-15 + adaptive conformal"] = conformalize(Q["QRA-15 (+GBM tails)"], y, 2 * MIN_DAYS, gamma=0.005)
+    if all(m in P for m in QRA_SEL):
+        P["hyb_boa_sel"], _ = ev.run_combiner(BOACombiner(len(ev.HYBRID_SEL)), ev.HYBRID_SEL, P, y)
+        Q["QRA-8 (sel6 + tails)"] = cached_qra(np.stack([P[m] for m in QRA_SEL], -1), y, args)
+        Q["QRA-8 centred + adaptive conformal"] = conformalize(centre(Q["QRA-8 (sel6 + tails)"], P["hyb_boa_sel"]),
+                                                               y, 2 * MIN_DAYS, gamma=0.005)
     Q["QRA LSTM+RF only"] = cached_qra(F_nr, y, args)
     Q["QRA LSTM+RF only + adaptive conformal"] = conformalize(Q["QRA LSTM+RF only"], y, 2 * MIN_DAYS, gamma=0.005)
 
@@ -202,6 +221,7 @@ def main():
                  ("QRA LSTM+RF only + adaptive conformal", "QRA + adaptive conformal"),
                  ("QRA + adaptive conformal", "QRA all models + adaptive conformal"),
                  ("QRA all models + adaptive conformal", "QRA-15 + adaptive conformal"),
+                 ("QRA-15 + adaptive conformal", "QRA-8 centred + adaptive conformal"),
                  ("Distributional LSTM (direct)", "QRA + adaptive conformal")]:
         if a not in Q or b not in Q:
             continue
@@ -210,10 +230,10 @@ def main():
     print("Note: Kupiec assumes independent hits; hourly hits are autocorrelated and n is ~24k, so it rejects\n"
           "even small deviations - read the coverage levels themselves.")
 
-    # export quantiles of the best method: QRA over all members plus the dedicated GBM tail
-    # forecasts, + adaptive conformal (selected on 2024, confirmed on the 2025-26 holdout,
-    # DM p = 0.038 vs the 13-member QRA; spike-hour q90 coverage 81 %); falls back gracefully.
-    best = next(k for k in ["QRA-15 + adaptive conformal", "QRA all models + adaptive conformal",
+    # export quantiles of the best method: QRA-8 centred on the BOA-selected point forecast,
+    # + adaptive conformal (see QRA_SEL); falls back gracefully.
+    best = next(k for k in ["QRA-8 centred + adaptive conformal", "QRA-15 + adaptive conformal",
+                            "QRA all models + adaptive conformal",
                             "QRA + adaptive conformal"] if k in Q)
     hours = (days.values[:, None] + np.arange(24) * np.timedelta64(1, "h")).ravel()
     out = pd.DataFrame(Q[best].reshape(-1, len(QUANTILES)), columns=[f"q{int(q * 100):02d}" for q in QUANTILES],

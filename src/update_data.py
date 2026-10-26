@@ -10,7 +10,10 @@
             (BMRS DGWS wind/solar forecasts are NOT used: they are published ~16:45 UTC on D-1,
             after the day-ahead auction)
   carbon    UK ETS (UKA) futures: no free API. Export "UK Emissions Allowances Energy c1
-            Historical Data" (daily) from www.investing.com into data/manual/.
+            Historical Data" (daily) from www.investing.com into data/manual/ (about monthly;
+            in between, data.load_carbon carries UKA forward with the EUA's relative moves)
+  eua       SparkChange Physical Carbon EUA ETC (Yahoo CO2.L), EUR/t: continues the EUA series
+            after the investing.com export ends (Dec 2025), see data.load_eua
   ttf       ICE Endex Dutch TTF front-month settlement via Yahoo Finance, daily EUR/MWh
   windout   Elexon AGWS actual wind generation (transmission), half-hourly; published ~90 min
             after each half hour -> used only lagged >= 2 days (wind forecast-error features)
@@ -403,6 +406,22 @@ def update_carbon():
     df = pd.concat(frames).dropna().drop_duplicates("Date", keep="last").sort_values("Date")
     df.to_csv(RAW / "carbon_uka_daily_investing.csv", index=False)
     print(f"carbon : UKA {df.Date.iloc[0]} -> {df.Date.iloc[-1]} ({len(df)} trading days, GBP/t) from {len(files)} file(s)")
+    age = (TODAY - pd.Timestamp(df.Date.iloc[-1])).days
+    if age > 35:
+        print(f"WARNING carbon: last UKA quote is {age} days old -> add a fresh investing.com export "
+              "to data/manual/ (until then UKA is carried forward with EUA moves)")
+
+
+# ------------------------------------------------------------------ EUA (ETC, Yahoo)
+def update_eua():
+    """SparkChange Physical Carbon EUA ETC (LSE: CO2, one share = one EUA), EUR/t, via Yahoo
+    Finance. Continues the investing.com EUA futures export after it ends (see data.load_eua);
+    like TTF, only the settlement of D-2 is used."""
+    import yfinance as yf
+    s = yf.download("CO2.L", start="2021-10-01", progress=False, auto_adjust=True)["Close"].iloc[:, 0]
+    s = s.rename("eua").dropna()
+    s.to_csv(RAW / "carbon_eua_daily_yahoo.csv", index_label="Date")
+    print(f"eua    : {s.index.min().date()} -> {s.index.max().date()} ({len(s)} trading days, EUR/t, ETC)")
 
 
 # ------------------------------------------------------------------ TTF gas futures
@@ -553,7 +572,7 @@ def update_embedded_live():
 
 STEPS = {"prices": update_prices, "gas": update_gas, "demand": update_demand, "windfor": update_windfor, "ndf": update_ndf,
          "embedded": update_embedded, "weather": update_weather, "carbon": update_carbon,
-         "ttf": update_ttf, "windout": update_windout,
+         "ttf": update_ttf, "eua": update_eua, "windout": update_windout,
          "prices_live": update_prices_live, "demand_live": update_demand_live, "embedded_live": update_embedded_live,
          "weather_multi": update_weather_multi, "margin": update_margin, "remit": update_remit}
 
