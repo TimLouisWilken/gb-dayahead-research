@@ -80,6 +80,8 @@ def _qra_block(args):
             models = {}
             for h in range(24):
                 X, Y = F[lo:t, h, :], y[lo:t, h]
+                ok = np.isfinite(Y) & np.isfinite(X).all(1)       # live: D-1 may lack its last hour
+                X, Y = X[ok], Y[ok]
                 models[h] = [QuantileRegressor(quantile=q, alpha=0, solver="highs").fit(X, Y) for q in QUANTILES]
         out[t] = np.stack([[m.predict(F[t:t + 1, h, :])[0] for m in models[h]] for h in range(24)])
     return out
@@ -108,14 +110,14 @@ def conformalize(Q, y, start, gamma=0.0):
     level = np.tile(QUANTILES, (24, 1)).astype(float)                         # (24, nq)
     for t in range(start, len(y)):
         past = np.arange(max(0, t - WINDOW), t)
-        past = past[np.isfinite(Q[past]).all((1, 2))]
+        past = past[np.isfinite(Q[past]).all((1, 2)) & np.isfinite(y[past]).all(1)]
         if len(past) < MIN_DAYS:
             continue
         R = y[past][:, :, None] - Q[past]                                     # (w, 24, nq)
         lv = np.clip(level, 0.001, 0.999)
         shift = np.array([[np.quantile(R[:, h, i], lv[h, i]) for i in range(len(QUANTILES))] for h in range(24)])
         Qc[t] = np.sort(Q[t] + shift, axis=-1)
-        if gamma:                                                             # y[t] is known only after day t
+        if gamma and np.isfinite(y[t]).all():                                 # y[t] is known only after day t
             level += gamma * (QUANTILES[None, :] - (y[t][:, None] <= Qc[t]))
     return Qc
 

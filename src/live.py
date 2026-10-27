@@ -197,7 +197,8 @@ def boa_over(panel, y_map, members, dates, target):
         path[i] = comb.combine(F[i])
         if d == target:
             return path[i], comb.w, path
-        comb.update(F[i], y_map[d])
+        if d in y_map:      # D-1 is incomplete before the D auction (last UK hour = next CET day)
+            comb.update(F[i], y_map[d])
     raise ValueError("target not in panel")
 
 
