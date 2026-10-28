@@ -388,11 +388,11 @@ src/bess_backtest.py      battery arbitrage backtest (LP dispatch)
 src/spike_classifier.py   spike-probability classifier (outputs/spike_prob.npy)
 src/qra15_experiment.py, src/qra_x_experiment.py, src/qra_lean_experiment.py
                           QRA variant experiments (tails, extra regressors, QRA-8 / centring)
-src/publish_site.py       pushes the live forecast to the GitHub Pages site
+src/publish_site.py       writes the site JSONs and pushes them to the GitHub Pages site
 src/update_data_de.py, src/data_de.py, src/test_leakage_de.py
                           German (DE-LU) transfer: data, features, leakage test
 run_all.sh                runs all members in parallel, then lstm_rf and the evaluation
-run_live.sh               daily live run (scheduled via LaunchAgent, 08:50 UK time)
+run_live.sh               manual / local live run (production runs on GitHub Actions, see below)
 docs/literature_review.md pre-build literature review and references
 docs/LITERATURE.md        full-text literature review and positioning
 docs/DE_TRANSFER.md       German transfer study, status and interim results
@@ -433,7 +433,9 @@ process caused sporadic segfaults on macOS/x86.
 
 ## Using it operationally (live, implemented)
 
-`src/live.py` runs the whole thing daily with persistent state:
+`src/live.py` runs the whole thing daily with persistent state. In production it runs on
+**GitHub Actions**, not on a local machine (see "Production schedule" below). Locally, for tests
+or a manual backfill:
 
 ```bash
 ./run_live.sh                                        # target = tomorrow; logs to outputs/logs/live.log
@@ -454,10 +456,30 @@ selected-6 BOA forecast, + adaptive conformal, from a persistent QRA state
   their usual cadence. The first run cold-fits everything (~1–2 h); after that a run takes minutes.
 - Output: `outputs/live/forecast_<target>.csv` (hourly: BOA all / BOA selected 6 / equal weights /
   every member / 19 quantiles) plus a row in `outputs/live/history.csv`.
-- Schedule: a LaunchAgent (`~/Library/LaunchAgents/com.dayahead.live.plist`) runs it daily at
-  09:50 Berlin = 08:50 UK time — after the NDF full-day issue (08:45 UK) and the 07:30 UTC cutoff,
-  before the gate closures (EPEX 09:20, N2EX 09:50 UK). A run missed while the Mac sleeps fires on
-  the next wake. Disable with `launchctl unload ~/Library/LaunchAgents/com.dayahead.live.plist`.
+
+### Production schedule (GitHub Actions)
+
+The daily forecast runs on **GitHub Actions** in the private repo
+[`gb-dayahead-pipeline`](https://github.com/TimLouisWilken/gb-dayahead-pipeline), workflow
+`.github/workflows/daily.yml`. It no longer depends on a Mac being awake.
+
+- **Trigger:** an external scheduler (cron-job.org) calls the `workflow_dispatch` API at
+  **08:50 Europe/London** on D-1 — after the NDF full-day issue (08:45 UK) and the 07:30 UTC cutoff,
+  before the gate closures (EPEX 09:20, N2EX 09:50 UK). GitHub's own cron (09:05 UTC) is only a
+  fallback, because it can start hours late; it skips if tomorrow's forecast already exists.
+- **Code:** `src/` in the pipeline repo is a mirror of `src/` here. A change made here only reaches
+  production once it is copied over and committed there.
+- **State:** member weights, live OOS forecasts and the QRA state live in the `state.tar.zst` asset
+  of the pipeline repo's `state` release: downloaded at the start of every run, re-uploaded at the end.
+- **Publishing:** the workflow checks out a fresh copy of the public site repo
+  [`gb-dayahead-forecast`](https://github.com/TimLouisWilken/gb-dayahead-forecast) (deploy key
+  `SITE_SSH_KEY`), and `src/publish_site.py` writes only `data/latest.json`, `data/history.json` and
+  `data/days.json` and pushes them as `dayahead-bot`. The page itself (`index.html`, `classic/`) is
+  edited directly in the site repo and is never touched by the pipeline.
+- **Checking a run:** Actions tab of the pipeline repo; a successful run ends with a
+  `forecast <date>` commit in the site repo.
+- **Retired:** the former local LaunchAgent (`~/Library/LaunchAgents/com.dayahead.live.plist`)
+  and the local site clone in `~/.cache/day-ahead-prediction/site` are no longer used.
 
 ## Transfer to Germany (transfer study, interim results)
 
