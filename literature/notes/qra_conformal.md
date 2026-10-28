@@ -1,8 +1,8 @@
 # Literature notes: QRA, Factor-QRA, Kath-Ziel CP, Zaffran AgACI
 
-The PDFs rendered as images; text was extracted with pdftotext. Notes come from the main text (appendices skipped except a few Zaffran details).
+Text was extracted with pdftotext. Notes come from the main text (appendices skipped except a few Zaffran details).
 
-**Answers to the four project questions**
+**Summary for this project**
 - **Original QRA setup and gains:** QR with the 12 individual models' point forecasts as regressors gave the best 50% and 90% interval coverage and beat the best individual model (SNARX). No CRPS or pinball score in the paper, only coverage, Christoffersen tests and PI width.
 - **Conformal on top of QRA (two-stage):** none of the four papers does it. Kath & Ziel and Maciejowska et al. use CP and QRA as parallel alternatives; Kath & Ziel (sec. 6.1) only suggest as future work that CP intervals might be "averaged"; Zaffran et al. apply ACI/AgACI to a random forest, not to QRA. **The QRA→ACI pipeline has no direct precedent in these four.**
 - **ACI gamma:** Zaffran et al. choose gamma by theory, simulation and aggregation. Small gamma is better under weak dependence; optimal gamma is non-monotone in dependence strength.
@@ -100,12 +100,12 @@ NCP vs E for the same point model: Winkler falls ~10–20% on GEFCom and Nord Po
 
 **Results (Figure 7 only, approximate reads — indicative!).** ACI γ=0.05: coverage ≈0.900, median length ≈21 (smallest); ACI γ=0.01: ≈0.905, ≈22; AgACI: ≈0.918, ≈22.8; EnbPI V2: ≈0.920, ≈23.2; ACI γ=0: ≈0.930, ≈24.5; OSSCP ≈0.932, ≈24.7; offline SCP ≈0.935, ≈26. Text: "ACI gives the smallest intervals with a correct coverage, for γ=0.01 and γ=0.05"; "AgACI is more efficient than γ=0 while maintaining validity. Yet it slightly over-covers, and is slightly less efficient than ACI with a well chosen γ." No pinball/CRPS/Winkler; no comparison with QRA.
 
-**Relevance to γ=0.005:** below the tested values (0.01, 0.05); plausible for near-exchangeable calibration. The 89.6% coverage (0.4 pt below target) is consistent with the finite-sample bound for small γ — inference, not stated in the paper.
+**Relevance to γ=0.005:** below the tested values (0.01, 0.05); plausible for near-exchangeable calibration. The project's 89.4% coverage (0.6 pt below target) is consistent with the finite-sample bound for small γ — inference, not stated in the paper.
 
 ---
 
 ## Cross-paper observations
 1. No two-stage QRA→conformal paper among these four; QRA→ACI is not directly benchmarked anywhere here.
 2. QRA benchmarks repeatedly under-cover (Nord Pool 90% PI: 80.9%; EPEX ID 83.3%; GEFCom 87.4%; Maciejowska: too narrow on all datasets) — plausible motivation for a conformal layer on top.
-3. Pinball in these papers is a PI-averaged figure; scale not comparable with 3.59 EUR/MWh over 19 quantiles in another market/period.
+3. Pinball in these papers is a PI-averaged figure; scale not comparable with the project's 3.39 EUR/MWh over 19 quantiles in another market/period.
 4. Windows: 182 days (Maciejowska), 330 days with an 8-week QRA window (Kath & Ziel), expanding (original QRA), 3-year sliding with sequential split (Zaffran).

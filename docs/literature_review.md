@@ -1,12 +1,12 @@
-## Literature review: online hybrid LSTM + Random Forest for GB day-ahead EPF
+# Literature review: online hybrid LSTM + Random Forest for GB day-ahead EPF
 
 Method: WebSearch and WebFetch, run on 2026-10-09. I checked each citation against a publisher, arXiv, RePEc, IEEE or DBLP-type record. For Lago et al. (2021) I read the full text. For most other papers I only saw the abstract or the bibliographic record. Items I could not fully verify are marked **[UNVERIFIED: …]**.
 
 ### 1. Hybrid LSTM + tree-ensemble architectures
 
-- **No peer-reviewed paper combines an LSTM and a Random Forest specifically for day-ahead EPF in the way requested.** This gap is real and can be stated as a contribution.
+- We found no peer-reviewed paper that combines an LSTM and a random forest for day-ahead EPF in this way (the search was not exhaustive).
 - **Residual / error correction (closest match):** Ghimire et al. (2024, *Applied Energy*) use VMD + CNN-LSTM as the first stage, then a Random Forest models the decomposed forecast errors (the "ERCRF" stage). This beat the same model without error correction on half-hourly Queensland prices. It is the most direct precedent for "RF on LSTM residuals".
-- **Stacking or regime switching:** Manfre Jaimes et al. (2023, *Forecasting*) run LSTM and XGBoost side by side and pick the final forecast by a price-spike threshold (Alberta, 1–4 days ahead). Xue et al. (2025, arXiv preprint) describe a hybrid XGBoost-LSTM for the NSW market, but the abstract does not say how the two are combined.
+- **Stacking or regime switching:** Manfre Jaimes et al. (2023, *Forecasting*) run LSTM and XGBoost side by side and pick the final forecast by a price-spike threshold (Alberta, 1–4 days ahead). Xue et al. (2025, arXiv preprint) use XGBoost for an initial forecast and an LSTM on its residuals (NSW market).
 - **Caution:** Lago, De Ridder & De Schutter (2018) compared 27 methods and found that "hybrid models do not outperform their simpler counterparts". Lago et al. (2021) found that well-tuned DNNs beat LEAR, but LEAR is still a very strong and cheap baseline. Any hybrid must be benchmarked against LEAR and an equal-weight average, with Diebold-Mariano tests.
 
 ### 2. Recalibration and calibration windows in EPF
@@ -36,7 +36,7 @@ Method: WebSearch and WebFetch, run on 2026-10-09. I checked each citation again
 - **Neural nets:**
   - Pham et al. (2023, ICLR), FSNet: fast per-layer adapters for recent changes plus an associative memory for recurring patterns.
   - Rolnick et al. (2019): a small experience-replay buffer greatly reduces catastrophic forgetting.
-  - Recent preprints (arXiv 2511.17936, 2510.00809): on mild time-based drift, replay performs about the same as plain sequential fine-tuning. It helps clearly when regimes interfere with each other, as in a recurring crisis or calm regime.
+  - Du (2025, arXiv:2511.17936): on benign time-based streams, replay performs about the same as plain sequential fine-tuning; it clearly reduces forgetting on heterogeneous multi-task streams. arXiv:2510.00809 (2025) studies catastrophic forgetting of time-series foundation models under continual fine-tuning.
   - Salihoglu, Ahmed & Asadi (2025, arXiv; CAISO): an online-updated LSTM cut MSE by about 23% compared with a static LSTM trained once.
 
 ### 4. GB/UK-specific EPF, 2021–2026
@@ -45,7 +45,7 @@ Method: WebSearch and WebFetch, run on 2026-10-09. I checked each citation again
 - Mishra et al. (2024): Elexon MID half-hourly prices with gas and demand as external inputs, comparing ARIMA, Prophet, XGBoost, CNN, RNN and LSTM.
 - Osone & Kodaira (2025, *IEEE Access*): quantile regression for UK prices using demand and generation forecasts over 1,132 training days. MAE is about £18.27/MWh.
 - Earlier GB work and Harkin & Liu (2024, arXiv, Irish I-SEM) both find that **same-day gas price and wind generation are the dominant features**, and that feature importance shifted after 2021.
-- I found no published online or continually retrained hybrid model for GB. This is a clear gap.
+- I found no published online or continually retrained hybrid model for GB.
 
 ### Recommended design: "online hybrid LSTM + RF"
 
@@ -96,9 +96,11 @@ Method: WebSearch and WebFetch, run on 2026-10-09. I checked each citation again
 - Salihoglu, S., Ahmed, I. and Asadi, A. (2025) 'Adaptive online learning with LSTM networks for energy price prediction', arXiv:2510.16898 (preprint).
 - Wintenberger, O. (2017) 'Optimal learning with Bernstein Online Aggregation', *Machine Learning*, 106(1), 119–141. doi:10.1007/s10994-016-5592-6
 - Xue, H. et al. (2025) 'LLM-enhanced feature engineering for multi-factor electricity price predictions', arXiv:2505.11890 (preprint).
+- Du, W. (2025) 'Mitigating catastrophic forgetting in streaming generative and predictive learning via stateful replay', arXiv:2511.17936 (preprint).
 
 **Not cited, because the title could not be confirmed:** a 2025 *Energy Informatics* stacking paper (doi:10.1186/s42162-025-00572-y). According to a search snippet, it used RF, LSTM, XGBoost and LightGBM as base models with an RF meta-learner, but the article page was behind a login.
-### Added during model development (not part of the agent search above)
+
+### Added during model development
 
 - Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H. and Choo, J. (2022) 'Reversible instance normalization for accurate time-series forecasting against distribution shift', *ICLR 2022*. https://openreview.net/forum?id=cGDAkQo1C0p
 - Uniejewski, B., Weron, R. and Ziel, F. (2018) 'Variance stabilizing transformations for electricity spot price forecasting', *IEEE Transactions on Power Systems*, 33(2), 2219–2229. doi:10.1109/TPWRS.2017.2734563

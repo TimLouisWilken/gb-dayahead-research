@@ -84,10 +84,10 @@ GW multivariate tests: the DNN ensemble is statistically significantly better th
 
 ---
 
-## Cross-cutting positioning hooks for the GB/N2EX project
-- Project rMAE 0.39 (vs similar-day naive) undercuts every value in Lago's benchmark tables (best anywhere: 0.377, DNN ensemble on EPEX-DE; Nord Pool best 0.403) — but Lago's rMAE denominators are market-specific, so claim "below the best rMAE reported across all five benchmark markets", not a direct ranking.
+## Relevance for this project
+- Project rMAE 0.39 (vs similar-day naive) is of the same order as the best values in Lago's benchmark (0.377–0.573, vs p(d−7)). Market and naive differ, so this is not a ranking.
 - The 2.75-year test (2024-01→2026-09) exceeds the ≥1-year minimum and matches the benchmark's 2-year standard.
 - BOA per-hour combination is the online-aggregation lineage the literature touches only via ML-Poly inside GEFCom's quantMixt; CLS/simple averaging were the prior state of the art; constrained/regularized weights explicitly favored over unconstrained OLS/BMA.
-- QRA on a 13+2-member pool is the canonical recipe ("no limits on the components of X_t"); 89.6% coverage at 90% nominal is better than every model in the Nowotarski-Weron empirical study (best there: mARX-B, 87.44%).
+- QRA on a pool of point forecasts is the canonical recipe ("no limits on the components of X_t"). The project's 89.4% coverage at 90% nominal (after the conformal step) is not comparable with the Nowotarski-Weron study (other market and period).
 - GB is absent from the open benchmarks; GB-specific prior art is thin: Nan 2009, Bordignon et al. 2013 (combination), Maciejowska & Weron 2013/2016 (factor models/fundamentals), Cartea et al. 2009 + Maryniak & Weron (reserve-margin spike probabilities).
 - Evaluation vocabulary to adopt: rMAE + MAE, per-hour and multivariate DM/GW tests, Kupiec/Christoffersen (per hour) or Berkowitz for coverage, aggregate pinball (≈CRPS) and Winkler for sharpness; avoid MAPE and CWC.

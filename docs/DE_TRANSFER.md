@@ -76,8 +76,9 @@ Strict variant, all finished members (transformer still running), EUR/MWh:
 | LEAR 4 windows | 14.89 | 0.509 |
 | LEAR | 15.44 | 0.528 |
 | Distributional LSTM | 15.56 | 0.532 |
-| TCN / GBM / DNN | 15.80 / 15.81 / 15.83 | 0.541 |
+| TCN / GBM / DNN | 15.80 / 15.81 / 15.83 | 0.540 / 0.541 / 0.541 |
 | LSTM + RF error correction | 16.00 | 0.547 |
+| LSTM online | 16.30 | 0.557 |
 | RF long window | 16.68 | 0.571 |
 | Merit-order regression | 19.12 | 0.654 |
 | RF static (trained once) | 19.98 | 0.683 |

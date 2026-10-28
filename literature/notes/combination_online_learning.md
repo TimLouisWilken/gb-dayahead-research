@@ -1,7 +1,5 @@
 # Literature notes: BOA / online aggregation for day-ahead EPF (6 papers)
 
-Note on file naming: the file `hubicka2016_combine_or_not_wp.pdf` actually contains **Nowotarski & Weron (2016)**, HSC/16/01 — not a Hubicka paper. Notes below reflect the paper as printed.
-
 ---
 
 ## 1. Wintenberger (2017) — Optimal learning with Bernstein Online Aggregation
@@ -18,7 +16,7 @@ Note on file naming: the file `hubicka2016_combine_or_not_wp.pdf` actually conta
 
 **Datasets/results.** Pure theory paper; no empirical application, no electricity data.
 
-**Relevance hooks for the project:** this is the canonical reference for why BOA rather than EWA: optimality *in deviation* (robustness of a single run, not just on average), second-order variance term stabilizes weights, multiple per-expert learning rates are built in and fully adaptive (no tuning). Nothing here on smoothing or forgetting.
+**Relevance for this project:** this is the canonical reference for why BOA rather than EWA: optimality *in deviation* (robustness of a single run, not just on average), second-order variance term stabilizes weights, multiple per-expert learning rates are built in and fully adaptive (no tuning). Nothing here on smoothing or forgetting.
 
 ---
 
@@ -95,8 +93,8 @@ Note on file naming: the file `hubicka2016_combine_or_not_wp.pdf` actually conta
 
 ---
 
-## 5. Nowotarski & Weron (2016) — "To combine or not to combine?" (file named hubicka2016)
-**File:** `literature/pdf/hubicka2016_combine_or_not_wp.pdf`
+## 5. Nowotarski & Weron (2016) — "To combine or not to combine?"
+**File:** `literature/pdf/nowotarski_weron2016_combine_or_not_wp.pdf`
 **Citation as printed:** Jakub Nowotarski, Rafał Weron (Dept. of Operations Research, Wrocław University of Technology), "To combine or not to combine? Recent trends in electricity price forecasting", HSC Research Report HSC/16/01, preprint submitted to ARGO Review, January 18, 2016.
 
 **Core contribution.** Short empirical position paper arguing that combining forecasts (averaging/aggregation/committee machines) is worth it in EPF for both point and probabilistic forecasts. Uses GEFCom2014 Price Track data and 4 standard time-series models; compares three point-combination schemes (SIMPLE arithmetic mean, constrained least squares CLS with nonnegative weights summing to 1, LAD regression) and **Quantile Regression Averaging (QRA)** for probabilistic forecasts (quantile regression on the vector of individual point forecasts; notes QRA won the top two places at GEFCom2014; FQRA/PCA variant for many experts).

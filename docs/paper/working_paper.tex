@@ -26,7 +26,7 @@
 
 \begin{abstract}
 \noindent
-This paper forecasts the 24 hourly day-ahead prices of the Great Britain (GB) market with a pool of 13 models. All models are updated daily. They are combined per delivery hour with Bernstein Online Aggregation (BOA). The decision time is 07:30~UTC on the day before delivery. At that time the demand, wind, solar, fuel and weather inputs of the auction morning are not yet final. All inputs are checked for leakage with an automated perturbation test. Over 2024-01-01 to 2026-09-27 (about 1\,000 local days) the best combination, built from six members chosen on 2024 only, reaches MAE 8.56~EUR/MWh and rMAE 0.391 against a similar-day naive forecast; the LEAR benchmark with daily recalibration reaches 11.07. Updating the models every day is the largest single gain (random forest $-32\%$, LSTM $-21\%$ MAE against the same model trained once). For quantiles, the realised price is regressed on the six selected point forecasts and two pinball-loss boosting tail forecasts (QRA). The quantiles are then centred on the BOA point forecast and recalibrated with adaptive conformal inference. The average pinball loss is 3.39, 6\,\% below a QRA over all 15 regressors on the holdout ($p<0.001$), and the 90\,\% interval covers 89.4\,\% of hours. A linear-programme battery backtest (100~MWh / 50~MW) earns 93.1\,\% (2025) and 93.7\,\% (2026) of perfect-foresight profit. Negative results are reported as well. Seven feature sets, several combiner variants and an outage-based spike signal did not help. No claim of superiority over published methods is made. No open benchmark exists for GB, and the naive benchmark used here differs from the literature standard.
+This paper forecasts the 24 hourly day-ahead prices of the Great Britain (GB) market with a pool of 13 models. All models are updated daily. They are combined per delivery hour with Bernstein Online Aggregation (BOA). The decision time is 07:30~UTC on the day before delivery; only the national demand forecast uses a later issue (up to 09:00 UK time, still before both gate closures). At that time the demand, wind, solar, fuel and weather inputs of the auction morning are not yet final. All inputs are checked for leakage with an automated perturbation test. Over 2024-01-01 to 2026-09-27 (about 1\,000 local days) the best combination, built from six members chosen on 2024 only, reaches MAE 8.56~EUR/MWh and rMAE 0.391 against a similar-day naive forecast; the LEAR benchmark with daily recalibration reaches 11.07. Updating the models every day is the largest single gain (random forest $-32\%$, LSTM $-21\%$ MAE against the same model trained once). For quantiles, the realised price is regressed on the six selected point forecasts and two pinball-loss boosting tail forecasts (QRA). The quantiles are then centred on the BOA point forecast and recalibrated with adaptive conformal inference. The average pinball loss is 3.39, 6\,\% below a QRA over all 15 regressors on the holdout ($p<0.001$), and the 90\,\% interval covers 89.4\,\% of hours. A linear-programme battery backtest (100~MWh / 50~MW) earns 93.1\,\% (2025) and 93.7\,\% (2026) of perfect-foresight profit. Negative results are reported as well. Seven feature sets, several combiner variants and an outage-based spike signal did not help. No claim of superiority over published methods is made. No open benchmark exists for GB, and the naive benchmark used here differs from the literature standard.
 \end{abstract}
 
 \noindent\textbf{Keywords:} electricity price forecasting, day-ahead market, Great Britain, forecast combination, online learning, quantile regression averaging, conformal prediction, battery storage.
@@ -35,7 +35,7 @@ This paper forecasts the 24 hourly day-ahead prices of the Great Britain (GB) ma
 
 Day-ahead prices in Great Britain moved through three regimes in five years: the 2021--22 energy crisis, a normalisation in 2023--24, and since 2025 a market with low midday and sharp evening-ramp prices, with gas about 40\,\% higher in 2026 than in 2025. A model fitted once degrades under this drift. The question of this paper is practical. How much accuracy does a forecaster gain if every model is updated every day, and if the models are combined by an algorithm that also adapts every day?
 
-The electricity price forecasting (EPF) literature gives a clear methodological frame (\citealp{lago2021}; \citealp{weron2014}): test over at least a year, recalibrate daily, choose hyper-parameters before the test period, report relative errors and Diebold--Mariano tests, and include a cheap strong benchmark. This paper follows that frame and adds three elements that the open benchmark does not cover. First, GB is not one of its five markets. Second, a strict information set is fixed at 07:30~UTC on day $D\!-\!1$, and every input is audited against it. Look-ahead through revised data, reanalysis weather and post-auction forecasts is the most common silent error in applied EPF. Third, the forecasts are judged by statistical scores and by the profit of a battery that trades on them.
+The electricity price forecasting (EPF) literature gives a clear methodological frame (\citealp{lago2021}; \citealp{weron2014}): test over at least a year, recalibrate daily, choose hyper-parameters before the test period, report relative errors and Diebold--Mariano tests, and include a cheap strong benchmark. This paper follows that frame and adds three elements that the open benchmark does not cover. First, GB is not one of its five markets. Second, a strict information set is fixed at 07:30~UTC on day $D\!-\!1$ (09:00 UK time for the national demand forecast), and every input is audited against it. Look-ahead through revised data, reanalysis weather and post-auction forecasts is the most common silent error in applied EPF. Third, the forecasts are judged by statistical scores and by the profit of a battery that trades on them.
 
 \paragraph{Contributions.}
 \begin{enumerate}
@@ -51,7 +51,7 @@ The work was positioned against 25 papers read in full text. The positioning and
 
 The target is the hourly GB day-ahead price in EUR/MWh for each local (UK) delivery day $D$. Daylight-saving days are mapped to 24 hours as in \texttt{epftoolbox}: the missing spring hour is interpolated, the doubled autumn hour is averaged. Prices come from Ember (CC-BY-4.0) up to the latest published day and from the Nord Pool N2EX result in the live system.
 
-\paragraph{Information set.} The forecast for day $D$ is issued at 07:30~UTC on $D\!-\!1$, before the GB gate closures (EPEX 09:20, N2EX 09:50 UK time). Table~\ref{tab:inputs} lists the inputs and the availability rule that was enforced for each.
+\paragraph{Information set.} The decision time for day $D$ is 07:30~UTC on $D\!-\!1$. The one exception is the national demand forecast, whose latest issue up to 09:00 UK time is used; the full-day issue appears at 08:45. All inputs are therefore known before the GB gate closures (EPEX 09:20, N2EX 09:50 UK time), and the live forecast runs at 08:50 UK time. Table~\ref{tab:inputs} lists the inputs and the availability rule that was enforced for each.
 
 \begin{table}[ht]
 \centering\small
@@ -72,7 +72,7 @@ Gas (SAP) & gas day $D\!-\!3$; UK ETS (UKA) futures settlement of $D\!-\!2$\\
 \label{tab:inputs}
 \end{table}
 
-The demand forecast matters. It is three times more accurate than the previous proxy, the outturn one week earlier (MAE 665 vs.\ 2\,031~MW against outturn). It lowers the MAE of the 4-member hybrid by 4.9\,\%.
+The demand forecast matters. It is three times more accurate than the previous proxy, the outturn one week earlier (MAE 665 vs.\ 2\,031~MW against outturn). It lowers the MAE of the 4-member hybrid by 5.4\,\% (10.18 to 9.63).
 
 \paragraph{Leakage audit.} An audit of common pipeline designs and of the first version of this project found and removed the following:
 (i)~a rolling price mean containing hours of the forecast day (\texttt{closed='left'} on an hourly index);
@@ -82,13 +82,13 @@ The demand forecast matters. It is three times more accurate than the previous p
 (v)~UTC days instead of local days, so that in summer an input hour belonged to the auction being forecast;
 (vi)~gap filling with later values;
 (vii)~revised wind outturn published after the cutoff (114 of 97\,000 half-hours), found by the issue-time check itself.
-Two further data errors were fixed: gas SAP is in p/kWh, and a file labelled "UK ETS" was the EU ETS price. The script \texttt{src/test\_leakage.py} scrambles every value that was unknown at 07:30~UTC (prices from $D$, demand from $D\!-\!1$, gas from $D\!-\!2$, and so on), including both daylight-saving switch days, and asserts that the model inputs for $D$ are bit-identical. A positive control scrambles the permitted inputs and must change the result; a third check verifies that no forecast issue time exceeds the cutoff. 
+Two further data errors were fixed: gas SAP is in p/kWh, and a file labelled "UK ETS" was the EU ETS price. The script \texttt{src/test\_leakage.py} scrambles every value that was unknown at the cutoff (07:30~UTC, 09:00 UK time for the demand forecast; prices from $D$, demand from $D\!-\!1$, gas from $D\!-\!2$, and so on), including both daylight-saving switch days, and asserts that the model inputs for $D$ are bit-identical. A positive control scrambles the permitted inputs and must change the result; a third check verifies that no forecast issue time exceeds the cutoff. 
 
 \section{Models and combination}
 \label{sec:point}
 
 \subsection{Protocol}
-Models are first fitted on 2021-07-07 to 2023-06-30. From then on each day, every member forecasts day $D$ from information before $D\!-\!1$ 07:30 and then learns the realised prices. The second half of 2023 is a burn-in used to warm up combiners and to choose hyper-parameters. All results use \textbf{2024-01-01 to 2026-09-27}, which no design choice has seen except where stated (selection on 2024 with a 2025--26 holdout).
+Models are first fitted on 2021-07-07 to 2023-06-30. From then on each day, every member forecasts day $D$ from information available at the $D\!-\!1$ cutoff and then learns the realised prices. The second half of 2023 is a burn-in used to warm up combiners and to choose hyper-parameters. All results use \textbf{2024-01-01 to 2026-09-27}, which no design choice has seen except where stated (selection on 2024 with a 2025--26 holdout).
 
 \subsection{Members}
 Table~\ref{tab:members} lists the pool. Prices are asinh-transformed for stability \citep{uniejewski2018}; neural members use reversible instance normalisation so that the network learns shapes rather than regime levels (burn-in MAE of the LSTM 16.9 $\to$ 13.5).
@@ -208,7 +208,7 @@ Distributional LSTM (own output) & 3.96 & 39.3 & 67.3 & 79.3 & 34.5\\
 Chronos-Bolt (own output) & 5.61 & 52.9 & 81.4 & 81.4 & 44.3\\
 \bottomrule
 \end{tabular}
-\caption{Quantile forecasts, 2024-01-01 to 2026-09-27, daily recalibration. Coverage in percent of hours.}
+\caption{Quantile forecasts, 2024-01-01 to 2026-09-27, daily recalibration. Coverage in percent of hours. Chronos-Bolt only outputs the 10--90\,\% quantiles; its 5\,\% and 95\,\% levels equal the 10\,\% and 90\,\% ones, so its 90\,\% interval equals its 80\,\% interval.}
 \label{tab:prob}
 \end{table}
 
@@ -277,7 +277,7 @@ The QRA-$q_{50}$ result is consistent with the literature on forecast combinatio
 
 \section{Conclusion}
 
-On GB day-ahead prices, with a strict 07:30~UTC information set, daily updating of every model and per-hour BOA over a diverse pool cut the MAE of the LEAR benchmark by 23\,\% (8.56 vs.\ 11.07~EUR/MWh) over 2.75 years. The combination was the best forecast in every year and in the battery backtest. Diversity mattered more than size. Six models from different families beat thirteen. QRA over point forecasts, with two tail forecasts and adaptive conformal calibration, yields intervals with near-nominal coverage. The same pipeline runs daily in production (a GitHub Actions workflow) and publishes its forecasts and monthly accuracy statistics on a public website. Next steps are the open comparisons named under the limitations. These are a common GB benchmark with the $p(d\!-\!7)$ naive, per-hour calibration tests, and the vertical average of distributional post-processors.
+On GB day-ahead prices, with a strict day-ahead information set (07:30~UTC; demand forecast up to 09:00 UK time), daily updating of every model and per-hour BOA over a diverse pool cut the MAE of the LEAR benchmark by 23\,\% (8.56 vs.\ 11.07~EUR/MWh) over 2.75 years. The combination was the best forecast in every year and in the battery backtest. Diversity mattered more than size. Six models from different families beat thirteen. QRA over point forecasts, with two tail forecasts and adaptive conformal calibration, yields intervals with near-nominal coverage. The same pipeline runs daily as a scheduled job on the author's machine and publishes its forecasts and accuracy statistics on a public website. Next steps are the open comparisons named under the limitations. These are a common GB benchmark with the $p(d\!-\!7)$ naive, per-hour calibration tests, and the vertical average of distributional post-processors.
 
 \section*{Reproducibility and data statement}
 Code, predictions of all members, metrics, Diebold--Mariano tables and figures are in the public repository. Raw third-party price data are not redistributed (licences of Nord Pool and others); Ember data (CC-BY-4.0) can be downloaded with \texttt{src/update\_data.py}. Full-text PDFs of cited papers are not committed. The script \texttt{literature/download.sh} re-downloads them. Prices: Ember, \emph{European wholesale electricity price data}, CC-BY-4.0.
@@ -290,7 +290,7 @@ The literature review and parts of the implementation were carried out with the 
 \bibitem[Gibbs and Cand\`es(2021)]{gibbs2021} Gibbs, I., Cand\`es, E. (2021). Adaptive conformal inference under distribution shift. \emph{NeurIPS}. (Not read in full.)
 \bibitem[Kath and Ziel(2021)]{kath2021} Kath, C., Ziel, F. (2021). Conformal prediction interval estimations with an application to day-ahead and intraday power markets. \emph{International Journal of Forecasting} 37, 777--799.
 \bibitem[Lago et al.(2021)]{lago2021} Lago, J., Marcjasz, G., De Schutter, B., Weron, R. (2021). Forecasting day-ahead electricity prices: a review of state-of-the-art algorithms, best practices and an open-access benchmark. \emph{Applied Energy} 293, 116983.
-\bibitem[Lipiecki et al.(2024)]{lipiecki2024} Lipiecki, A., Uniejewski, B., Weron, R. (2024). Postprocessing of point predictions for probabilistic forecasting of day-ahead electricity prices: the benefits of using isotonic distributional regression. arXiv:2404.02270.
+\bibitem[Lipiecki et al.(2024)]{lipiecki2024} Lipiecki, A., Uniejewski, B., Weron, R. (2024). Postprocessing of point predictions for probabilistic forecasting of day-ahead electricity prices: the benefits of using isotonic distributional regression. \emph{Energy Economics} 139, 107934. arXiv:2404.02270.
 \bibitem[Maciejowska et al.(2026)]{maciejowska2026} Maciejowska, K., Lipiecki, A., Uniejewski, B. (2026). Statistical and economic evaluation of forecasts in electricity markets: beyond RMSE and MAE. arXiv:2511.13616.
 \bibitem[Marcjasz et al.(2023)]{marcjasz2023} Marcjasz, G., Narajewski, M., Weron, R., Ziel, F. (2023). Distributional neural networks for electricity price forecasting. \emph{Energy Economics} 125, 106843.
 \bibitem[Nowotarski and Weron(2015)]{nowotarski2015} Nowotarski, J., Weron, R. (2015). Computing electricity spot price prediction intervals using quantile regression and forecast averaging. \emph{Computational Statistics} 30(3), 791--803.

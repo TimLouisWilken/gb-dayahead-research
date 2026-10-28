@@ -10,7 +10,7 @@ All files in `literature/pdf/`.
 
 **Core contribution.** Directly compares the two dominant DNN structures for day-ahead EPF: DNN1 (24 independent single-output networks, one per hour, each with its own hyperparameters/features) vs. DNN24 (one network with a vectorized 24-dimensional output mirroring the daily auction). Both are 2-hidden-layer feed-forward DNNs with joint feature + hyperparameter optimization via tree Parzen estimator (241 candidate inputs, 11 feature-selection hyperparameters), 4-year (208-week) rolling calibration, 42-week validation with early stopping; benchmark is LEAR (LASSO-estimated autoregressive, 247 regressors/hour, asinh VST). Finding: the multi-output DNN24 is significantly more accurate AND roughly 20x faster than per-hour DNN1; per-hour specialization promotes overfitting because single-output nets cannot share generalizing representations across hours.
 
-**Data/test periods.** Five open-access epftoolbox datasets (Lago et al. 2021), 2,184 days each; 728-day out-of-sample tests: NP and PJM 27.12.2016–24.12.2018; BE, FR, DE 04.01.2015–31.12.2016.
+**Data/test periods.** Five open-access epftoolbox datasets (Lago et al. 2021), 2,184 days each; 728-day out-of-sample tests: NP and PJM 27.12.2016–24.12.2018; BE, FR 04.01.2015–31.12.2016; DE 04.01.2016–31.12.2017.
 
 **Headline numbers (Table 2, rMAE vs. weekly-similar-day naive, all 24 h):**
 | dataset | LEAR | DNN24 | DNN1 |

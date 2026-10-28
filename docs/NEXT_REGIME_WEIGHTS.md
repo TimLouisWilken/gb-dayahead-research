@@ -31,7 +31,7 @@ and only change *which* regret state is updated and served.
 | ID | Variant | Description |
 |---|---|---|
 | R0 | baseline | `hyb_boa_sel`: unconditional BOA, 6 members |
-| R1 | bucketed BOA, residual load | one independent `BOACombiner` per tercile of the **daily mean residual-load forecast** of D (`res_load`, `src/data.py:354`) |
+| R1 | bucketed BOA, residual load | one independent `BOACombiner` per tercile of the **daily mean residual-load forecast** of D (`res_load` in `src/data.py`) |
 | R2 | blended R1 | served weights = (1 − λ)·w_global + λ·w_bucket, λ ∈ {0.25, 0.5, 0.75}. This counters the main risk of R1, that each bucket learns from only ~1/3 of the days |
 | R3 | bucketed BOA, wind share | like R1/R2, but the state is the forecast wind + solar share of demand for D |
 

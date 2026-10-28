@@ -17,12 +17,12 @@ dl https://arxiv.org/pdf/1404.1356 wintenberger2017_boa.pdf
 dl https://arxiv.org/pdf/2102.00968 berrisch_ziel2021_crps_learning.pdf
 dl https://arxiv.org/pdf/2303.10019 berrisch_ziel2024_multivariate_crps.pdf
 dl https://arxiv.org/pdf/1207.1965 devaine2013_sleeping_experts_load.pdf
-dl https://alfa.im.pwr.edu.pl/~hugo/RePEc/wuu/wpaper/HSC_16_01.pdf hubicka2016_combine_or_not_wp.pdf
+dl https://alfa.im.pwr.edu.pl/~hugo/RePEc/wuu/wpaper/HSC_16_01.pdf nowotarski_weron2016_combine_or_not_wp.pdf
 dl https://alfa.im.pwr.edu.pl/~hugo/RePEc/wuu/wpaper/HSC_18_03.pdf hubicka2018_calibration_windows_wp.pdf
 dl https://arxiv.org/pdf/2601.02856 bridging_linear_nn_online2026.pdf
 # probabilistic forecasting & conformal prediction
 dl https://alfa.im.pwr.edu.pl/~hugo/RePEc/wuu/wpaper/HSC_13_12.pdf nowotarski_weron2013_qra_wp.pdf
-dl https://arxiv.org/pdf/2303.08565 maciejowska_factor_qra_gb.pdf
+dl https://arxiv.org/pdf/2303.08565 maciejowska2024_factor_qra.pdf
 dl https://arxiv.org/pdf/1905.07886 kath_ziel2021_conformal.pdf
 dl https://arxiv.org/pdf/2202.07282 zaffran2022_agaci.pdf
 dl https://arxiv.org/pdf/2404.02270 idr_postprocessing2024.pdf

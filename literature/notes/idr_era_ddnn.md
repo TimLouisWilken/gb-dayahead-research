@@ -118,7 +118,7 @@ Without transform: QRA PS **2.16** beats ERA 2.18 (P5% 8.83 vs 8.02; P95% 93.61 
 ---
 
 ## Cross-paper takeaways
-- **Scale caveat:** all CRPS numbers are German EUR/MWh averages over 99 percentiles (1.3–1.6 for 2019–2020; 4–11 for 2021–2023) — not directly comparable to the GB 3.59 EUR/MWh average pinball over 19 quantiles for 2024–2026.
+- **Scale caveat:** all CRPS numbers are German EUR/MWh averages over 99 percentiles (1.3–1.6 for 2019–2020; 4–11 for 2021–2023) — not directly comparable to the GB 3.39 EUR/MWh average pinball over 19 quantiles for 2024–2026.
 - **QRA vs alternatives:** holds up well vs IDR and CP in most subperiods (Lipiecki); under-covers at the tails (Janczura: 7.54% / 91.78% vs 5% / 95%); Marcjasz et al.: passes Kupiec in at most 10 of 24 hours → motivates a conformal correction layer.
 - **Combining distributions helps:** Lipiecki's average of QRM, CP, IDR beats the best single method in all subperiods except Spain 2023; averaging runs stabilises DDNN.
 - **Variance-stabilising transform matters:** ERA beats QRA only with asinh (Janczura); asinh + better LASSO moved LEAR-QRM from 1.662 to 1.350 (Lipiecki).

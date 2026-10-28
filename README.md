@@ -7,7 +7,8 @@ combined with Bernstein Online Aggregation, with calibrated quantiles and a live
 
 ## Headline results
 
-Out of sample, 2024-01-01 → 2026-09-27, strict 07:30 UTC D-1 information set:
+Out of sample, 2024-01-01 → 2026-09-27, strict D-1 information set (07:30 UTC for all inputs except
+the NESO demand forecast, which uses the latest issue ≤ 09:00 UK time, before both gate closures):
 
 | | Result |
 |---|---|
@@ -31,7 +32,7 @@ newest data. The project started as an *online* hybrid of four core members:
 | `lstm_rf` | LSTM + RF **error correction** | RF learns the LSTM's out-of-sample errors, weekly refit |
 | **Hybrid BOA** | final forecast | per-hour **Bernstein Online Aggregation** of the four members, weights updated every day |
 
-**Additional members** (same online protocol, added in the "try everything" round):
+**Additional members** (same online protocol, added in a second round):
 
 | Member | Model | Online scheme |
 |---|---|---|
@@ -46,8 +47,8 @@ newest data. The project started as an *online* hybrid of four core members:
 
 Benchmarks: naive (Lago et al., 2021), **LEAR** with daily recalibration (182/728-day windows averaged),
 and *static* RF / LSTM that are trained once and never updated (the continual-learning ablation).
-Final products: **Hybrid BOA all models** (BOA over all 13 members) for the point forecast and
-**QRA-8 centred + adaptive conformal** for the quantiles. It is a QRA over the selected 6 members
+Final products: **Hybrid BOA selected 6** for the published point forecast (BOA over all 13 is
+reported as the main research result) and **QRA-8 centred + adaptive conformal** for the quantiles. It is a QRA over the selected 6 members
 plus two dedicated GBM tail forecasts, centred on the selected-6 BOA forecast; until 2026-10 it was
 QRA-15, a QRA over all 13 members plus the tails.
 
@@ -92,7 +93,8 @@ end-of-day gaps (≤ 3 h) are filled within the day **for the lag features only*
 ## Forecasting set-up and leakage audit
 
 Before the GB day-ahead auctions close on D-1 (~09:20 UK time), the 24 hourly prices of
-**local (UK) delivery day D** are forecast. The decision time is 07:30 UTC on D-1. DST days are
+**local (UK) delivery day D** are forecast. The decision time is 07:30 UTC on D-1; the only later
+input is the NESO demand forecast (latest issue ≤ 09:00 UK time, see the data table). DST days are
 mapped to 24 hours, as in epftoolbox: the missing spring hour is interpolated and the doubled
 autumn hour is averaged.
 
@@ -184,10 +186,10 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    - RF: online 11.58 vs static 17.12 (−32 %).
    - LSTM: online 10.69 vs static 13.50 (−21 %).
    - Both p < 0.001. The static models degrade year by year; the online models do not.
-2. **Already the 4-member online hybrid beats LEAR in every year:** MAE −12.5 %, RMSE −19 %,
+2. **Already the 4-member online hybrid beats LEAR in every year:** MAE −13 %, RMSE −19 %,
    p < 0.001. The gap is largest in 2026 (−17 %). The full 13-member combination widens this to −21 %.
-3. **The Transformer is the best single model** (9.78) — but it is *not* significantly better than
-   the 4-member Hybrid BOA (p = 0.73), and the full combination beats it clearly (p < 0.001).
+3. **The Transformer is the best single model** (9.78). The 4-member Hybrid BOA (9.63) is slightly
+   better but not significantly (p = 0.16); the full combination beats it clearly (p < 0.001).
    TCN and DNN look fine on MAE but have fat error tails (RMSE 23.5 / 23.9 — 2025 instability);
    the combination absorbs this.
 4. **RF error correction improves the LSTM:** 10.37 vs 10.69 (p = 0.006), mainly in RMSE, i.e. in the size of the spikes.
@@ -195,7 +197,7 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    time-ordered early stopping it reaches 10.79, better than both RFs. (The decisive choice was the
    **absolute** loss; squared loss chased the 2022 spikes: 18.3.) XGBoost itself could not be used
    (libomp conflict with scikit-learn on macOS/x86); HistGradientBoosting is the same LightGBM-style algorithm.
-6. **BOA weighting ≈ equal weights for the small, homogeneous pool** (9.68 vs 9.79) — but for the
+6. **BOA weighting ≈ equal weights for the small, homogeneous pool** (9.63 vs 9.79). For the
    13-member pool with deliberately weak members (Chronos 14.4, merit 12.2) adaptive weighting pays:
    BOA 8.73 vs equal 9.15. Weak members are down-weighted automatically, so nothing had to be
    pre-selected (regret grows only with log N).
@@ -203,15 +205,15 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
    earlier combination and every single model (all p < 0.0001). LEAR4, merit and Chronos add little
    alone, but they do no harm inside BOA.
 8. **Ablation: 6 diverse members beat all 13.** Greedy backward elimination *selected on 2024
-   only* keeps exactly one member per model family — `lstm_rf, gbm, transformer, lear, merit,
-   chronos` — and wins on the untouched 2025–26 holdout: MAE 8.99 vs 9.18 (DM p = 0.007); full period
+   only* keeps exactly one member per model family (`lstm_rf, gbm, transformer, lear, merit,
+   chronos`) and wins on the untouched 2025–26 holdout: MAE 8.99 vs 9.18 (DM p = 0.007); full period
    8.56 vs 8.73 (p < 0.001), better in every year and in RMSE. Before the serving-time weight
-   smoothing the figures are 9.01 vs 9.18 and 8.59 vs 8.74. Redundant siblings
+   smoothing the figures are 9.01 vs 9.18 (p = 0.011) and 8.59 vs 8.74 (p = 0.002). Redundant siblings
    (both RFs, plain LSTM, TCN, DNN, DDNN, LEAR4) dilute the BOA weights of their better twin:
    BOA's log-N regret bound protects against *bad* experts, not against *correlated* ones.
-   Notably the individually weak merit (12.2) and Chronos (14.4) stay in — their errors are the
-   least correlated with the rest. This matches the expert-aggregation practice at EDF
-   (Gaillard & Goude: diverse experts from different statistical worlds, not many of a kind).
+   The individually weak merit (12.2) and Chronos (14.4) members stay in, because their errors are
+   the least correlated with the rest. This matches the expert-aggregation practice at EDF
+   (Gaillard & Goude, 2015: a few diverse experts rather than many similar ones).
 
 **Extra-predictor experiments** (both behind the `EXTRA_FEATS` env flag, tested first on the
 2023-H2 burn-in, then as full online A/B reruns; rejected variants archived in
@@ -222,7 +224,7 @@ Main findings. One-sided Diebold–Mariano p-values are in `outputs/dm_pvalues.c
 | `EXTRA_FEATS=1` | 7 neighbour DA prices (lag 1), 7-day rolling price mean/vol | every member slightly worse; hybrid 9.79 → 9.89 | **rejected** — the information is already in the GB lags / fuel cost / residual load |
 | `EXTRA_FEATS=2` | TTF front-month (D-2), EUA (D-2), wind forecast error (D-2/D-3) | **gbm 10.85 → 10.79 (better in every year)**; LSTM worse (10.69 → 10.99), RFs neutral, LEAR worse on burn-in | **adopted for `gbm` only** |
 | `EXTRA_FEATS=4` | population-weighted 4-city temperature, hourly HDD, daily HDD lags | rf_long burn-in better (13.48 → 13.14) but full online A/B worse (11.58 → 11.67, p = 0.92) | **rejected** — temperature is already in the demand forecast |
-| `EXTRA_FEATS=5` | NESO OC2 surplus margin for D (issue of D-2), absolute + relative | rf_long full A/B 11.67 vs 11.63 (p = 0.31), 2024 exactly neutral; gbm/lstm worse on burn-in | **rejected** |
+| `EXTRA_FEATS=5` | NESO OC2 surplus margin for D (issue of D-2), absolute + relative | rf_long full A/B: base 11.67 vs margin 11.63 (p = 0.31, n.s.), 2024 exactly neutral; gbm/lstm worse on burn-in | **rejected** |
 | `EXTRA_FEATS=6` | REMIT unavailable capacity for D (planned + unplanned outages incl. interconnectors, published ≤ cutoff; per-asset hourly max, dispatchable fuels) | falsified at the data level, no member run needed: planned outages **anti-correlate** with spikes (maintenance is scheduled into calm periods; 2024 spike hours 20.4 GW unavailable vs 21.8 normal), the unplanned <72 h "shock" variant shows zero discrimination, corr(price) ≈ 0 | **rejected** — outage information is already priced into the D-1 price lags |
 
 **Effect of the NESO/BMRS demand forecast (NDF).** It replaces the D-7 outturn proxy, and the
@@ -234,7 +236,7 @@ residual load becomes fully forecast-based. The NDF is 3× more accurate than th
 | LEAR | 11.56 | 11.07 | < 0.001 |
 | LSTM online | 11.02 | 10.69 | 0.008 |
 | RF long window | 12.29 | 11.58 | < 0.001 |
-| Hybrid BOA | 10.18 | **9.68** (−4.9 %, RMSE −7.6 %) | < 0.001 |
+| Hybrid BOA | 10.18 | **9.63** (−5.4 %, RMSE −8.2 %) | < 0.001 |
 
 The static RF got worse, because its single training window now starts in July 2021 instead of January.
 
@@ -302,6 +304,9 @@ Results, 2024-01-01 → 2026-09-27, with daily recalibration:
 | Distributional LSTM (direct) | 3.96 | 39.3 % | 67.3 % | 79.3 % | 24.8 | 34.5 |
 | Chronos-Bolt (direct) | 5.61 | 52.9 % | 81.4 % | 81.4 % | 44.3 | 44.3 |
 
+Chronos-Bolt is trained only on the 10–90 % quantiles; requests for 5 % and 95 % return its 10 % and
+90 % quantiles, so its 90 % interval equals its 80 % interval.
+
 - **Plain QRA is overconfident.** Its 90 % band covers only 83–85 %. The conformal correction fixes this,
   and the adaptive version hits all nominal levels within about 1 point, at almost no cost in pinball loss.
 - **QRA-15 beats the smaller core QRA**: the 13-member QRA beats the 5-member QRA (p = 0.009);
@@ -321,14 +326,14 @@ Results, 2024-01-01 → 2026-09-27, with daily recalibration:
   from six different model families, and with them the unconstrained QRA coefficients are more
   stable on the 182-day window. This is the same lesson as for BOA (finding 8). Centring adds a
   further gain (QRA-8 centred vs QRA-8: p = 0.002). q50 now has an MAE of 8.60, against 9.25
-  before, and it matches the published point forecast (8.57). Coverage stays within ~1 point of
+  before, and it matches the published point forecast (8.56). Coverage stays within ~1 point of
   nominal. One trade-off: in spike hours QRA-8 is slightly worse than QRA-15 (spike pinball 9.32
   vs 9.24 over 2024–26, equal on the holdout), so the siblings carried a little spike information.
 - The models' **own** distributions are too narrow on their own (DDNN covers 79 % at nominal 90 %) —
   but as members inside QRA they contribute.
 - **Without LEAR, QRA adds nothing over HS** (p = 0.40). For a pure LSTM + RF model, historical
   simulation is the simpler equivalent choice.
-- `outputs/forecasts_quantiles.csv` holds the quantiles of **QRA-8 centred + adaptive conformal**
+- `outputs/forecasts_quantiles.csv` (written by `probabilistic.py`, not committed) holds the quantiles of **QRA-8 centred + adaptive conformal**
   (the live product since 2026-10-26; QRA-15 before).
 
 ![Fan chart](outputs/figures/prob_fan_chart.png)
@@ -348,7 +353,7 @@ The pre-build review is in [`docs/literature_review.md`](docs/literature_review.
 - **RF error correction of a deep model** was effective for half-hourly prices (Ghimire et al., 2024).
   This motivates `lstm_rf`.
 - **Online forecast combination**: BOA (Wintenberger, 2017), applied to 24-dimensional day-ahead prices
-  by Berrisch & Ziel (2023). A forgetting factor (<1/day) would let weights track regime changes, but a grid search selected on 2024 and confirmed on the 2025–26 holdout (DM p = 0.001) picked **no forgetting** (forget = 1.0): the 365-day rolling weights are stable enough, and forgetting mostly adds variance. For serving, each hour's weights are averaged with its ±1-hour neighbours (selected on 2024, holdout-confirmed, both p < 0.001, −0.03 MAE): per-hour weights are noisy and adjacent delivery hours share structure; the online update itself keeps the raw per-hour weights.
+  by Berrisch & Ziel (2024, *IJF*). A forgetting factor (<1/day) would let weights track regime changes, but a grid search selected on 2024 and confirmed on the 2025–26 holdout (DM p = 0.001) picked **no forgetting** (forget = 1.0): the cumulative (expanding-window) weights are stable enough, and forgetting mostly adds variance. For serving, each hour's weights are averaged with its ±1-hour neighbours (selected on 2024, holdout-confirmed, both p < 0.001, −0.03 MAE): per-hour weights are noisy and adjacent delivery hours share structure; the online update itself keeps the raw per-hour weights.
 - **Reversible instance normalisation** (Kim et al., 2022, ICLR) for the LSTM. Each sample is normalised
   by its own 7-day price history, so the network learns price shapes instead of regime-specific levels.
   On the burn-in period this cut the LSTM's MAE from 16.9 to 13.5 EUR/MWh.
@@ -366,8 +371,8 @@ The pre-build review is in [`docs/literature_review.md`](docs/literature_review.
 ## Repository layout
 
 ```
-data/raw/                 inputs (refreshed by src/update_data.py)
-data/manual/              investing.com UKA exports (no free API)
+data/raw/                 inputs (refreshed by src/update_data.py; local, not committed)
+data/manual/              investing.com UKA exports (no free API; local, not committed)
 src/update_data.py        downloads: Ember (GB + neighbours), NESO, Elexon WINDFOR/NDF/AGWS, Open-Meteo, ONS, UKA, TTF
 src/data.py               leakage-free per-local-day tensors; EXTRA_FEATS env flag for the experimental feature sets
 src/test_leakage.py       perturbation test + issue-time check on the feature superset (must print ALL PASS)
@@ -379,25 +384,37 @@ src/live.py               daily live forecast with persistent member/QRA state (
 src/evaluate.py           online combinations, metrics, DM tests, figures
 src/probabilistic.py      quantile forecasts: HS, QRA (core/all members), (adaptive) conformal, direct distributions
 src/tune_lstm.py          single-member checks on the 2023-H2 burn-in period
+src/bess_backtest.py      battery arbitrage backtest (LP dispatch)
+src/spike_classifier.py   spike-probability classifier (outputs/spike_prob.npy)
+src/qra15_experiment.py, src/qra_x_experiment.py, src/qra_lean_experiment.py
+                          QRA variant experiments (tails, extra regressors, QRA-8 / centring)
+src/publish_site.py       pushes the live forecast to the GitHub Pages site
+src/update_data_de.py, src/data_de.py, src/test_leakage_de.py
+                          German (DE-LU) transfer: data, features, leakage test
 run_all.sh                runs all members in parallel, then lstm_rf and the evaluation
 run_live.sh               daily live run (scheduled via LaunchAgent, 08:50 UK time)
 docs/literature_review.md pre-build literature review and references
 docs/LITERATURE.md        full-text literature review and positioning
+docs/DE_TRANSFER.md       German transfer study, status and interim results
+docs/NEXT_REGIME_WEIGHTS.md  planned regime-conditional BOA experiment
 docs/paper/              working paper (LaTeX source + PDF)
 literature/               per-paper notes (notes/), PDF download script
 outputs/                  predictions, metrics, figures, logs
-outputs/preds_v2_no_ndf   run before the NDF input was added
-outputs/live_state/       persistent live state: member pickles, live OOS forecasts, QRA state
-outputs/live/             daily forecast CSVs + history.csv
+outputs/preds_v2_no_ndf   run before the NDF input was added (forecasts_hourly.csv without the actual prices)
+outputs/live_state/       persistent live state: member pickles, live OOS forecasts, QRA state (local, not committed)
+outputs/live/             daily forecast CSVs + history.csv (local, not committed)
 outputs/preds_nf_experiment   rejected neighbour-price feature runs (EXTRA_FEATS=1)
 outputs/preds_f2_experiment   TTF/EUA/wind-error A/B runs (EXTRA_FEATS=2; adopted for gbm only)
+outputs/preds_margin_experiment  OC2 margin runs (EXTRA_FEATS=5, rejected)
+outputs/preds_temp_experiment    temperature-feature runs (EXTRA_FEATS=4, rejected)
+outputs/preds_seed_experiment    second Transformer seed set (not adopted)
 ```
 
 ## Reproduce
 
 ```bash
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python "torch==2.2.2" "numpy<2" pandas scikit-learn scipy matplotlib holidays requests openpyxl pyproj yfinance
+uv pip install --python .venv/bin/python "torch==2.2.2" "numpy<2" pandas scikit-learn scipy matplotlib holidays requests openpyxl yfinance
 .venv/bin/python src/update_data.py      # refresh inputs (put the investing.com UKA CSV into data/manual first)
 .venv/bin/python src/test_leakage.py     # must print ALL PASS
 ./run_all.sh                                # all members in parallel, then lstm_rf and evaluate.py
@@ -442,7 +459,7 @@ selected-6 BOA forecast, + adaptive conformal, from a persistent QRA state
   before the gate closures (EPEX 09:20, N2EX 09:50 UK). A run missed while the Mac sleeps fires on
   the next wake. Disable with `launchctl unload ~/Library/LaunchAgents/com.dayahead.live.plist`.
 
-## Transfer to Germany (work in progress)
+## Transfer to Germany (transfer study, interim results)
 
 `MARKET=DE ./run_all.sh` runs the same pipeline on the German DE-LU day-ahead market (SMARD
 data, decision time 10:00 Europe/Berlin on D-1, GB hyper-parameters unchanged). Interim result,
