@@ -52,12 +52,50 @@ def naive(price_by_day, d):
     return price_by_day.get(ref)
 
 
+def git(site, *args, timeout=120):
+    return subprocess.run(["git", *args], cwd=site, capture_output=True, text=True, timeout=timeout)
+
+
+def sync(site):
+    """Fast-forward the site clone to GitHub before writing. Never raises."""
+    try:
+        r = git(site, "pull", "--rebase", "--autostash", "-q")
+        if r.returncode != 0:
+            git(site, "rebase", "--abort")
+            print(f"WARNING site pull failed, continuing with the local clone: {r.stderr.strip()[:300]}")
+    except Exception as e:
+        print(f"WARNING site pull failed: {e}")
+
+
+def push(site):
+    """Push the new data commit. If GitHub moved on in the meantime (a page edit), rebase the
+    data commit on top and push again; for files touched on both sides our fresh data wins
+    (-X theirs = the commit being replayed)."""
+    r = git(site, "push")
+    if r.returncode == 0:
+        print("pushed to GitHub Pages")
+        return
+    print(f"push rejected, rebasing onto GitHub and retrying: {r.stderr.strip()[:200]}")
+    rb = git(site, "pull", "--rebase", "-X", "theirs", "-q")
+    if rb.returncode != 0:
+        git(site, "rebase", "--abort")
+        print(f"WARNING site rebase failed, forecast NOT published: {rb.stderr.strip()[:300]}")
+        return
+    r = git(site, "push")
+    print("pushed to GitHub Pages (after rebase)" if r.returncode == 0
+          else f"WARNING site push failed, forecast NOT published: {r.stderr.strip()[:300]}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--site", default=str(SITE))
     ap.add_argument("--no-push", action="store_true")
     args = ap.parse_args()
     site = Path(args.site)
+    # bring the site clone up to date first: the page (index.html, classic/) is also edited
+    # outside this pipeline, and a push from a stale clone would be rejected as non-fast-forward
+    if not args.no_push and (site / ".git").exists():
+        sync(site)
     (site / "data").mkdir(parents=True, exist_ok=True)
 
     files = sorted(LIVE.glob("forecast_*.csv"))
@@ -210,8 +248,7 @@ def main():
         subprocess.run(["git", "add", "-A"], cwd=site, check=True, capture_output=True)
         r = subprocess.run(["git", "commit", "-m", f"forecast {target}"], cwd=site, capture_output=True, text=True)
         if r.returncode == 0:
-            subprocess.run(["git", "push"], cwd=site, check=True, capture_output=True, timeout=120)
-            print("pushed to GitHub Pages")
+            push(site)
         else:
             print("nothing new to commit")
     except Exception as e:
